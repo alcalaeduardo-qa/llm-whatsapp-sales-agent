@@ -31,5 +31,25 @@ def verificar(
 @app.post("/webhook")
 async def recibir(request: Request):
     body = await request.json()
-    logger.info("Recibido: %s", body)
+
+    try:
+        value = body["entry"][0]["changes"][0]["value"]
+    except (KeyError, IndexError):
+        logger.warning("Estructura inesperada: %s", body)
+        return {"status": "ignorado"}
+
+    if "messages" not in value:
+        logger.info("Evento sin mensaje, probablemente un estado")
+        return {"status": "ignorado"}
+
+    mensaje = value["messages"][0]
+    remitente = mensaje["from"]
+    tipo = mensaje["type"]
+
+    if tipo != "text":
+        logger.info("Mensaje tipo %s de %s, no soportado aún", tipo, remitente)
+        return {"status": "ignorado"}
+
+    texto = mensaje["text"]["body"]
+    logger.info("Mensaje de %s: %s", remitente, texto)
     return {"status": "recibido"}
