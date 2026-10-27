@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 from anthropic import AsyncAnthropic
+from supabase import create_client
 
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -15,8 +16,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sofia")
 
 claude = AsyncAnthropic()
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 SYSTEM_PROMPT = "Eres Sofía, asistente de Sanando el Alma. Responde breve, cálida y en español."
+HISTORIAL_MAX = 20
 
 app = FastAPI()
 
@@ -27,12 +30,35 @@ def normalizar_numero(numero):
     return numero
 
 
-async def generar_respuesta(texto):
+def guardar_mensaje(telefono, rol, contenido):
+    supabase.table("mensajes").insert({
+        "telefono": telefono,
+        "rol": rol,
+        "contenido": contenido,
+    }).execute()
+
+
+def obtener_historial(telefono):
+    resultado = (
+        supabase.table("mensajes")
+        .select("rol, contenido")
+        .eq("telefono", telefono)
+        .order("creado_en", desc=True)
+        .limit(HISTORIAL_MAX)
+        .execute()
+    )
+    filas = list(reversed(resultado.data))
+    while filas and filas[0]["rol"] != "user":
+        filas.pop(0)
+    return [{"role": f["rol"], "content": f["contenido"]} for f in filas]
+
+
+async def generar_respuesta(historial):
     respuesta = await claude.messages.create(
         model="claude-haiku-5-5",
         max_tokens=300,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": texto}],
+        messages=historial,
     )
     return respuesta.content[0].text
 
@@ -94,8 +120,12 @@ async def recibir(request: Request):
     texto = mensaje["text"]["body"]
     logger.info("Mensaje de %s: %s", remitente, texto)
 
-    respuesta = await generar_respuesta(texto)
+    guardar_mensaje(remitente, "user", texto)
+    historial = obtener_historial(remitente)
+
+    respuesta = await generar_respuesta(historial)
     logger.info("Sofía responde: %s", respuesta)
+    guardar_mensaje(remitente, "assistant", respuesta)
 
     destino = normalizar_numero(remitente)
     await enviar_whatsapp(destino, respuesta)
