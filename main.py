@@ -1,11 +1,13 @@
 import os
 import logging
 import httpx
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 from anthropic import AsyncAnthropic
 from supabase import create_client
+from datetime import datetime, timedelta, time
 
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -18,7 +20,6 @@ logger = logging.getLogger("sofia")
 claude = AsyncAnthropic()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-SYSTEM_PROMPT = "Eres Sofía, asistente de Sanando el Alma. Responde breve, cálida y en español."
 HISTORIAL_MAX = 20
 
 app = FastAPI()
@@ -29,12 +30,70 @@ def normalizar_numero(numero):
         return "52" + numero[3:]
     return numero
 
+DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
-def guardar_mensaje(telefono, rol, contenido):
+
+def calcular_horarios(ahora):
+    zona = ahora.tzinfo
+    limite = ahora + timedelta(hours=2)
+    opciones = []
+    for dias_extra in range(4):
+        fecha = (ahora + timedelta(days=dias_extra)).date()
+        for hora in range(14, 20):
+            inicio = datetime.combine(fecha, time(hora), tzinfo=zona)
+            if inicio >= limite:
+                if dias_extra == 0:
+                    dia = "hoy"
+                elif dias_extra == 1:
+                    dia = "mañana"
+                else:
+                    dia = "el " + DIAS[fecha.weekday()]
+                hora_texto = inicio.strftime("%I").lstrip("0")
+                opciones.append(f"{dia} a las {hora_texto} PM")
+                break
+        if len(opciones) == 2:
+            break
+    return " o ".join(opciones)
+
+def limpiar_texto(texto):
+    texto = re.sub(r'["“”«»]', "", texto)
+    texto = texto.replace("…", ".").replace("...", ".")
+    texto = re.sub(r"\s[—–-]\s", ", ", texto)
+    texto = texto.replace(": ", ", ").replace("; ", ", ")
+    return texto.strip()
+
+def cargar_prompt():
+    with open("prompts/sofia.md", encoding="utf-8") as f:
+        plantilla = f.read()
+    ahora = datetime.now(ZoneInfo("America/Mexico_City"))
+    return plantilla.format(
+        fecha_hora=ahora.strftime("%A %d/%m/%Y %I:%M %p"),
+        banco=os.getenv("BANCO"),
+        clabe=os.getenv("CLABE"),
+        titular=os.getenv("TITULAR"),
+        link_stripe=os.getenv("LINK_STRIPE"),
+        link_guia=os.getenv("LINK_GUIA"),
+        opciones_horario=calcular_horarios(ahora),
+    )
+
+
+def ya_procesado(wa_message_id):
+    resultado = (
+        supabase.table("mensajes")
+        .select("id")
+        .eq("wa_message_id", wa_message_id)
+        .limit(1)
+        .execute()
+    )
+    return len(resultado.data) > 0
+
+
+def guardar_mensaje(telefono, rol, contenido, wa_message_id=None):
     supabase.table("mensajes").insert({
         "telefono": telefono,
         "rol": rol,
         "contenido": contenido,
+        "wa_message_id": wa_message_id,
     }).execute()
 
 
@@ -56,11 +115,14 @@ def obtener_historial(telefono):
 async def generar_respuesta(historial):
     respuesta = await claude.messages.create(
         model="claude-haiku-5-5",
-        max_tokens=300,
-        system=SYSTEM_PROMPT,
+        max_tokens=2500,
+        system=cargar_prompt(),
         messages=historial,
     )
-    return respuesta.content[0].text
+    if respuesta.stop_reason == "max_tokens":
+        logger.warning("Respuesta cortada por límite de tokens")
+    textos = [bloque.text for bloque in respuesta.content if bloque.type == "text"]
+    return limpiar_texto("\n".join(textos))
 
 
 async def enviar_whatsapp(destino, texto):
@@ -112,6 +174,11 @@ async def recibir(request: Request):
     mensaje = value["messages"][0]
     remitente = mensaje["from"]
     tipo = mensaje["type"]
+    wa_message_id = mensaje["id"]
+
+    if ya_procesado(wa_message_id):
+        logger.info("Mensaje duplicado %s, se ignora", wa_message_id)
+        return {"status": "duplicado"}
 
     if tipo != "text":
         logger.info("Mensaje tipo %s de %s, no soportado aún", tipo, remitente)
@@ -120,14 +187,21 @@ async def recibir(request: Request):
     texto = mensaje["text"]["body"]
     logger.info("Mensaje de %s: %s", remitente, texto)
 
-    guardar_mensaje(remitente, "user", texto)
-    historial = obtener_historial(remitente)
+    try:
+        guardar_mensaje(remitente, "user", texto, wa_message_id)
+        historial = obtener_historial(remitente)
 
-    respuesta = await generar_respuesta(historial)
-    logger.info("Sofía responde: %s", respuesta)
-    guardar_mensaje(remitente, "assistant", respuesta)
+        respuesta = await generar_respuesta(historial)
+        if not respuesta:
+            logger.warning("Claude no devolvió texto para %s", remitente)
+            return {"status": "sin_respuesta"}
 
-    destino = normalizar_numero(remitente)
-    await enviar_whatsapp(destino, respuesta)
+        logger.info("Sofía responde: %s", respuesta)
+        guardar_mensaje(remitente, "assistant", respuesta)
+
+        destino = normalizar_numero(remitente)
+        await enviar_whatsapp(destino, respuesta)
+    except Exception:
+        logger.exception("Error procesando mensaje de %s", remitente)
 
     return {"status": "recibido"}
