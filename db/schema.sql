@@ -32,3 +32,9 @@ create table if not exists public.conversaciones (
 );
 
 alter table public.conversaciones enable row level security;
+
+-- Día 4: Eduardo toma la conversación. humano_activo=true: Sofía no responde y reenvía
+-- cada mensaje a Telegram hasta que Eduardo use /reanudar.
+alter table public.conversaciones add column if not exists humano_activo boolean not null default false;
+alter table public.conversaciones add column if not exists motivo_humano text;
+alter table public.conversaciones add column if not exists humano_desde  timestamptz;

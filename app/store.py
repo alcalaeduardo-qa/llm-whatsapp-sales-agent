@@ -63,20 +63,28 @@ def _obtener_historial(telefono: str, limite: int) -> list[dict]:
     return preparar_historial(list(reversed(resultado.data)))
 
 
-def _venta_pausada(telefono: str) -> bool:
-    resultado = _cliente().table("conversaciones").select("venta_pausada").eq("telefono", telefono).limit(1).execute()
-    return bool(resultado.data and resultado.data[0]["venta_pausada"])
+ESTADO_INICIAL = {"venta_pausada": False, "humano_activo": False}
 
 
-def _pausar_venta(telefono: str, motivo: str) -> None:
-    _cliente().table("conversaciones").upsert(
-        {
-            "telefono": telefono,
-            "venta_pausada": True,
-            "motivo_pausa": motivo,
-            "pausada_en": datetime.now(UTC).isoformat(),
-        }
-    ).execute()
+def _obtener_estado(telefono: str) -> dict:
+    resultado = (
+        _cliente()
+        .table("conversaciones")
+        .select("venta_pausada, humano_activo")
+        .eq("telefono", telefono)
+        .limit(1)
+        .execute()
+    )
+    fila = resultado.data[0] if resultado.data else {}
+    return {clave: bool(fila.get(clave, inicial)) for clave, inicial in ESTADO_INICIAL.items()}
+
+
+def _ahora() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _actualizar_conversacion(telefono: str, campos: dict) -> None:
+    _cliente().table("conversaciones").upsert({"telefono": telefono, **campos, "actualizado_en": _ahora()}).execute()
 
 
 def preparar_historial(filas: list[dict]) -> list[dict]:
@@ -98,18 +106,36 @@ async def obtener_historial(telefono: str, limite: int = config.HISTORIAL_MAX) -
     return await asyncio.to_thread(_obtener_historial, telefono, limite)
 
 
-async def venta_pausada(telefono: str) -> bool:
-    """Si la consulta falla (p. ej. falta la tabla) se asume no pausada: la detección de crisis
-    corre en cada mensaje de todos modos."""
+async def obtener_estado(telefono: str) -> dict:
+    """Si la consulta falla se asume el estado inicial: la detección de crisis corre en cada
+    mensaje de todos modos."""
     try:
-        return await asyncio.to_thread(_venta_pausada, telefono)
+        return await asyncio.to_thread(_obtener_estado, telefono)
     except Exception:
         logger.exception("No se pudo leer el estado de la conversación")
+        return dict(ESTADO_INICIAL)
+
+
+async def _actualizar(telefono: str, campos: dict, que: str) -> bool:
+    try:
+        await asyncio.to_thread(_actualizar_conversacion, telefono, campos)
+        return True
+    except Exception:
+        logger.exception("No se pudo %s", que)
         return False
 
 
-async def pausar_venta(telefono: str, motivo: str) -> None:
-    try:
-        await asyncio.to_thread(_pausar_venta, telefono, motivo)
-    except Exception:
-        logger.exception("No se pudo pausar la venta (motivo %s)", motivo)
+async def pausar_venta(telefono: str, motivo: str) -> bool:
+    campos = {"venta_pausada": True, "motivo_pausa": motivo, "pausada_en": _ahora()}
+    return await _actualizar(telefono, campos, f"pausar la venta (motivo {motivo})")
+
+
+async def activar_humano(telefono: str, motivo: str) -> bool:
+    """Eduardo toma la conversación: Sofía deja de responder hasta /reanudar."""
+    campos = {"humano_activo": True, "motivo_humano": motivo, "humano_desde": _ahora()}
+    return await _actualizar(telefono, campos, f"activar modo humano (motivo {motivo})")
+
+
+async def reanudar(telefono: str) -> bool:
+    """Devuelve la conversación a Sofía y quita cualquier pausa."""
+    return await _actualizar(telefono, {"humano_activo": False, "venta_pausada": False}, "reanudar")

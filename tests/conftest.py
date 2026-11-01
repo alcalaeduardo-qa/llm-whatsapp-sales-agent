@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from app import config
+from app import config, prompt
+from tests.falsos import entorno  # noqa: F401  (fixture compartido)
 
 SECRETO = "secreto-de-prueba"
 
@@ -15,7 +16,7 @@ def anyio_backend():
 
 
 @pytest.fixture(autouse=True)
-def config_de_prueba(monkeypatch):
+def config_de_prueba(monkeypatch, tmp_path):
     """Valores fijos para que los tests no dependan del .env local."""
     monkeypatch.setattr(config, "APP_SECRET", SECRETO)
     monkeypatch.setattr(config, "VERIFY_TOKEN", "tok")
@@ -28,6 +29,8 @@ def config_de_prueba(monkeypatch):
     monkeypatch.setattr(config, "CRISIS_LLM", True)
     monkeypatch.setattr(config, "MAX_CARACTERES", 900)
     monkeypatch.setattr(config, "MAX_PARRAFOS", 4)
+    # Siempre la plantilla pública: los tests no dependen del prompt real (que no está en git)
+    monkeypatch.setattr(prompt, "RUTA_PROMPT", tmp_path / "no-existe.md")
 
 
 def firmar(cuerpo: bytes) -> str:

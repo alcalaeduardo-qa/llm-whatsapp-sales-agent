@@ -40,10 +40,10 @@
 - [x] Tests de cada guardrail.
 
 ## Día 4 — Derivación + alertas
-- [ ] Tool use de Claude: `derivar_a_eduardo(motivo)`.
-- [ ] Alerta por Telegram (comprobante recibido, pide hablar con Eduardo, crisis, fuera de fase).
-- [ ] Flag `humano_activo` por conversación: bot se silencia hasta `/reanudar` en Telegram.
-- [ ] Imágenes (comprobantes) → derivación automática en vez de ignorar.
+- [x] Tool use de Claude: `derivar_a_eduardo(motivo)`.
+- [x] Alerta por Telegram (comprobante recibido, pide hablar con Eduardo, crisis, fuera de fase).
+- [x] Flag `humano_activo` por conversación: bot se silencia hasta `/reanudar` en Telegram.
+- [x] Imágenes (comprobantes) → derivación automática en vez de ignorar.
 
 ## Día 5 — Agenda real
 - [ ] Google Calendar free/busy reemplaza `calcular_horarios` (mantener fallback). Horario 2–8 PM en config.

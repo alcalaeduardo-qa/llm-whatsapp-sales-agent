@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 import pytest
 from freezegun import freeze_time
 
-from app import config
-from app.prompt import RUTA_PROMPT, cargar_prompt, renderizar
+from app import config, prompt
+from app.prompt import cargar_prompt, renderizar
 from app.scheduling import calcular_horarios
 from app.store import preparar_historial
 from app.text import huella, limpiar_texto, normalizar_numero
@@ -124,11 +124,26 @@ def test_renderizar_falla_si_falta_variable():
         renderizar("{{a}} y {{b}}", {"a": 1})
 
 
-def test_prompt_real_se_renderiza_completo():
+def test_prompt_de_ejemplo_se_renderiza_completo():
     texto = cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX))
     assert "{{" not in texto
     assert "hoy a las 2 PM o mañana a las 2 PM" in texto
-    assert RUTA_PROMPT.exists()
+    assert "derivar_a_eduardo" in texto
+    assert prompt.ruta_prompt() == prompt.RUTA_EJEMPLO
+
+
+def test_prompt_real_tiene_prioridad_sobre_el_ejemplo(monkeypatch, tmp_path):
+    real = tmp_path / "sofia.md"
+    real.write_text("Prompt real {{fecha_hora}}", encoding="utf-8")
+    monkeypatch.setattr(prompt, "RUTA_PROMPT", real)
+    assert cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX)).startswith("Prompt real Friday")
+
+
+def test_sin_prompt_real_avisa_una_sola_vez(monkeypatch, caplog):
+    monkeypatch.setattr(prompt, "_avisado", False)
+    prompt.ruta_prompt()
+    prompt.ruta_prompt()
+    assert caplog.text.count("se usa el prompt de ejemplo") == 1
 
 
 @freeze_time("2026-10-31 02:00:00")  # 02:00 UTC sábado = 20:00 MX viernes
@@ -184,6 +199,27 @@ def test_extraer_mensaje_body_malformado(body):
     assert extraer_mensaje(body) is None
 
 
-def test_extraer_mensaje_sin_texto():
-    body = {"entry": [{"changes": [{"value": {"messages": [{"from": "1", "id": "w", "type": "image"}]}}]}]}
-    assert extraer_mensaje(body) == {"from": "1", "id": "w", "type": "image", "text": None}
+def _body(mensaje):
+    return {"entry": [{"changes": [{"value": {"messages": [mensaje]}}]}]}
+
+
+def test_extraer_mensaje_imagen_con_leyenda():
+    body = _body({"from": "1", "id": "w", "type": "image", "image": {"id": "MEDIA1", "caption": "ya pagué"}})
+    assert extraer_mensaje(body) == {
+        "from": "1",
+        "id": "w",
+        "type": "image",
+        "text": None,
+        "media_id": "MEDIA1",
+        "caption": "ya pagué",
+    }
+
+
+def test_extraer_mensaje_documento_sin_leyenda():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "document", "document": {"id": "M2"}}))
+    assert mensaje["media_id"] == "M2" and mensaje["caption"] is None
+
+
+def test_extraer_mensaje_audio_no_es_media_de_comprobante():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "audio", "audio": {"id": "A1"}}))
+    assert mensaje["media_id"] is None
