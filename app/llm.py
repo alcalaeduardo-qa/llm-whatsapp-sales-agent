@@ -40,6 +40,15 @@ HERRAMIENTA_DERIVAR = {
 }
 
 
+NOTA_DEVUELTA = (
+    "CONVERSACIÓN DEVUELTA POR EDUARDO\n"
+    "Eduardo ya atendió personalmente a esta persona (sus mensajes aparecen con el prefijo [Eduardo]) "
+    "y te devolvió la conversación. Continúa tú desde donde quedó. No vuelvas a usar derivar_a_eduardo "
+    "por lo que se dijo antes; úsala solo si en su último mensaje la persona lo pide de nuevo, envía un "
+    "comprobante o pregunta algo fuera de las fases. Nunca escribas el prefijo [Eduardo]."
+)
+
+
 @dataclass
 class Respuesta:
     texto: str
@@ -53,8 +62,12 @@ def _cliente():
     return AsyncAnthropic()
 
 
-async def generar_respuesta(historial: list[dict], correccion: str | None = None) -> Respuesta:
+async def generar_respuesta(
+    historial: list[dict], correccion: str | None = None, contexto: str | None = None
+) -> Respuesta:
     system = cargar_prompt()
+    if contexto:
+        system += f"\n\n{contexto}"
     if correccion:
         system += (
             "\n\nCORRECCIÓN\nTu respuesta anterior se descartó porque incumplió estas reglas "

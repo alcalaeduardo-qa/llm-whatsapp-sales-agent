@@ -25,6 +25,7 @@ class StoreFalso:
         self.ids: set[str] = set()
         self.pausadas: dict[str, str] = {}
         self.humano: dict[str, str] = {}
+        self.motivos: dict[str, str] = {}  # como motivo_humano: se conserva tras /reanudar
 
     async def registrar_entrante(self, telefono, contenido, wa_message_id):
         if wa_message_id in self.ids:
@@ -41,7 +42,11 @@ class StoreFalso:
         return store.preparar_historial(propias)
 
     async def obtener_estado(self, telefono):
-        return {"venta_pausada": telefono in self.pausadas, "humano_activo": telefono in self.humano}
+        return {
+            "venta_pausada": telefono in self.pausadas,
+            "humano_activo": telefono in self.humano,
+            "atendida_por_eduardo": telefono in self.motivos or telefono in self.humano,
+        }
 
     async def pausar_venta(self, telefono, motivo):
         self.pausadas[telefono] = motivo
@@ -49,6 +54,7 @@ class StoreFalso:
 
     async def activar_humano(self, telefono, motivo):
         self.humano.setdefault(telefono, motivo)
+        self.motivos[telefono] = motivo
         return True
 
     async def reanudar(self, telefono):

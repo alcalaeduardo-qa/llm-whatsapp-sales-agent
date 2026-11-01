@@ -20,14 +20,14 @@ def _desc(texto: str) -> str:
     return f"<{len(texto)} chars #{huella(texto)}>"
 
 
-async def generar_validada(historial: list[dict], remitente: str) -> llm.Respuesta:
+async def generar_validada(historial: list[dict], remitente: str, contexto: str | None = None) -> llm.Respuesta:
     """Respuesta de Claude que pasa el validador; un reintento con la corrección y luego respaldo fijo.
 
     Si Claude deriva a Eduardo no se reintenta: basta con que el texto sea válido o se usa uno fijo.
     """
     correccion = None
     for intento in (1, 2):
-        respuesta = await llm.generar_respuesta(historial, correccion)
+        respuesta = await llm.generar_respuesta(historial, correccion, contexto)
         problemas = guardrails.validar_salida(respuesta.texto)
         if respuesta.derivacion:
             if problemas:
@@ -115,7 +115,8 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             await atender_crisis(remitente, nueva=True)
             return
 
-        respuesta = await generar_validada(historial, remitente)
+        contexto = llm.NOTA_DEVUELTA if estado["atendida_por_eduardo"] else None
+        respuesta = await generar_validada(historial, remitente, contexto)
         logger.info("Sofía responde %s", _desc(respuesta.texto))
         try:
             await enviar(remitente, respuesta.texto)
