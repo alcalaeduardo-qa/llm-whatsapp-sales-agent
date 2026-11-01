@@ -22,7 +22,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 2 | Tests base (pytest, ruff, pre-commit, respx, freezegun) | ✅ en `main` (PRs #2 y #4) |
 | 3 | Guardrails: crisis antes del LLM + validador de salida | ✅ en `main` (PRs #3 y #4) |
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
-| 5 | Agenda real con iCloud | 🟡 commit local en la rama `dia-5-agenda` (sin push ni PR), falta probar con iCloud y los recordatorios |
+| 5 | Agenda real con iCloud | 🟡 rama `dia-5-agenda` en GitHub (sin PR), falta probar con iCloud y los recordatorios |
 | 6 | Audio (transcripción con Groq) | ⬜ |
 | 7–8 | Evals + red-teaming | ⬜ |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
@@ -34,7 +34,7 @@ Tests: **270 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-5-agenda`** (creada desde `main`), con un commit que incluye todo lo hecho del Día 5 (`app/calendario.py`, `tests/test_agenda.py`, `/reservar` en `comandos.py`, horarios que saltan ocupados) y este archivo. **Solo en local: no se ha subido a GitHub ni tiene PR.** Se sube y se abre el PR cuando el Día 5 esté probado contra iCloud y tenga los recordatorios (o antes, si Eduardo lo pide).
+- Rama actual: **`dia-5-agenda`** (creada desde `main`), con un commit que incluye todo lo hecho del Día 5 (`app/calendario.py`, `tests/test_agenda.py`, `/reservar` en `comandos.py`, horarios que saltan ocupados) y este archivo. **Subida a GitHub, sin PR.** El PR se abre cuando el Día 5 esté probado contra iCloud y tenga los recordatorios (o antes, si Eduardo lo pide).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -151,7 +151,7 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 2. **Prueba de solo lectura contra iCloud:** confirmar que `principal().calendar(name="Casa")` encuentra el calendario (el nombre puede variar) y que los ocupados de 7 días coinciden con el iPhone. Luego un `/reservar` real en un horario de prueba y borrarlo del iPhone.
 3. **Alarmas del evento para Eduardo:** en `calendario._crear_evento` agregar dos `VALARM` (`TRIGGER:-PT10M` y `TRIGGER:PT0M`, `ACTION:DISPLAY`) + test.
 4. **Recordatorio a la persona 10 min antes:** tarea programada (p. ej. APScheduler en el proceso, o revisión periódica del calendario buscando eventos "Sesión +tel" que empiezan en 10 min) que mande WhatsApp. Si pasaron más de 24 h desde el último mensaje de la persona, WhatsApp exige **plantilla aprobada** por Meta: crearla y usarla en ese caso. Debe sobrevivir reinicios (no guardar estado solo en memoria; ideal leer del calendario o de una tabla).
-5. Push de `dia-5-agenda` y PR contra `main`, borrar ramas `dia-4-derivacion` y `dia-5-agenda` tras el merge.
+5. PR de `dia-5-agenda` contra `main`, borrar ramas `dia-4-derivacion` y `dia-5-agenda` tras el merge.
 
 ### Días 6–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
