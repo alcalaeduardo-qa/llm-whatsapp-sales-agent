@@ -79,6 +79,7 @@ async def generar_respuesta(
         system=system,
         messages=historial,
         tools=[HERRAMIENTA_DERIVAR],
+        output_config={"effort": config.SOFIA_EFFORT},
     )
     if respuesta.stop_reason == "max_tokens":
         logger.warning("Respuesta cortada por límite de tokens")
@@ -99,9 +100,15 @@ async def clasificar_crisis(mensajes: list[str]) -> bool:
     """Llamada corta: ¿los últimos mensajes de la persona indican riesgo? Lanza si la API falla."""
     respuesta = await _cliente().messages.create(
         model=config.CLAUDE_MODEL_CLASIFICADOR,
-        max_tokens=5,
+        max_tokens=256,
+        # Sin razonamiento: con él activo, el SI/NO no alcanzaba a salir y siempre contaba como NO
+        thinking={"type": "disabled"},
+        output_config={"effort": "low"},
         system=PROMPT_CLASIFICADOR,
         messages=[{"role": "user", "content": "\n".join(mensajes)}],
     )
     texto = "".join(b.text for b in respuesta.content if b.type == "text").strip().upper()
+    if respuesta.stop_reason != "end_turn" or not texto:
+        # Sin veredicto no se asume "NO": quien llama recurre a la lista de señales
+        raise RuntimeError(f"Clasificador sin veredicto (stop_reason={respuesta.stop_reason})")
     return texto.startswith(("SI", "SÍ"))

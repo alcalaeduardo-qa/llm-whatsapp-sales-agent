@@ -183,3 +183,26 @@ def test_claude_sin_texto_termina_en_respaldo(entorno):
     post_firmado(entorno["http"], payload())
     assert len(entorno["claude"].peticiones) == 2
     assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_RESPALDO]
+
+
+# --- Parámetros de la API (bug real: el razonamiento se comía max_tokens) -------------
+def test_generacion_pide_esfuerzo_bajo_y_espacio_para_razonar(entorno):
+    post_firmado(entorno["http"], payload())
+    peticion = entorno["claude"].peticiones[0]
+    assert peticion["output_config"] == {"effort": "low"}
+    assert peticion["max_tokens"] >= 4000
+
+
+def test_clasificador_sin_razonamiento(entorno):
+    post_firmado(entorno["http"], payload())
+    clasificacion = entorno["claude"].clasificaciones[0]
+    assert clasificacion["thinking"] == {"type": "disabled"}
+    assert clasificacion["max_tokens"] >= 64
+
+
+@pytest.mark.parametrize("texto, crisis", [("ya no puedo más", True), ("¿cuánto cuesta?", False)])
+def test_clasificador_cortado_no_cuenta_como_no(entorno, texto, crisis):
+    """Si el clasificador no termina normal, se usa la lista de señales en vez de asumir NO."""
+    entorno["claude"].clasificador_stop = "max_tokens"
+    post_firmado(entorno["http"], payload(texto=texto))
+    assert (entorno["store"].pausadas != {}) is crisis

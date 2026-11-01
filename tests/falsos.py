@@ -76,6 +76,7 @@ class ClaudeFalso:
         self.respuestas: list[list[dict]] = [[{"type": "text", "text": SALUDO}]]
         self.veredicto = "NO"
         self.clasificador_falla = False
+        self.clasificador_stop = "end_turn"
         self.stop_reason = "end_turn"
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
@@ -84,7 +85,7 @@ class ClaudeFalso:
             self.clasificaciones.append(cuerpo)
             if self.clasificador_falla:
                 return httpx2.Response(500, json={"type": "error", "error": {"type": "api_error", "message": "x"}})
-            return self._mensaje([{"type": "text", "text": self.veredicto}], "end_turn")
+            return self._mensaje([{"type": "text", "text": self.veredicto}], self.clasificador_stop)
         self.peticiones.append(cuerpo)
         indice = min(len(self.peticiones), len(self.respuestas)) - 1
         return self._mensaje(self.respuestas[indice], self.stop_reason)
