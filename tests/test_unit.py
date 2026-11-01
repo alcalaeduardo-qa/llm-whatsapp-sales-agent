@@ -5,7 +5,7 @@ from freezegun import freeze_time
 
 from app import config, prompt
 from app.prompt import cargar_prompt, renderizar
-from app.scheduling import calcular_horarios
+from app.scheduling import calcular_horarios, dia_y_fecha, fecha_hora_legible
 from app.store import preparar_historial
 from app.text import huella, limpiar_texto, normalizar_numero
 from app.whatsapp import extraer_mensaje, firma_valida
@@ -66,23 +66,40 @@ def _ahora_mx():
     return datetime.now(MX)
 
 
+def test_regresion_domingo_de_madrugada_dice_lunes():
+    # Bug real: con "Sunday" en inglés y "mañana" sin fecha, Claude dijo "mañana martes"
+    ahora = datetime(2026, 11, 1, 0, 57, tzinfo=MX)
+    assert fecha_hora_legible(ahora) == "domingo 1 de noviembre de 2026, 12:57 AM"
+    assert "mañana lunes 2 de noviembre a las 2 PM" in calcular_horarios(ahora)
+
+
+def test_fechas_cruzan_fin_de_mes_y_de_año():
+    ahora = datetime(2026, 12, 31, 19, tzinfo=MX)
+    assert calcular_horarios(ahora) == "mañana viernes 1 de enero a las 2 PM o el sábado 2 de enero a las 2 PM"
+    assert dia_y_fecha(datetime(2027, 2, 28).date()) == "domingo 28 de febrero"
+
+
 @pytest.mark.parametrize(
     "instante_mx, esperado",
     [
         # Viernes 30/10/2026
-        ("2026-10-30 09:00", "hoy a las 2 PM o mañana a las 2 PM"),
-        ("2026-10-30 00:30", "hoy a las 2 PM o mañana a las 2 PM"),  # recién pasada la medianoche
-        ("2026-10-30 11:59", "hoy a las 2 PM o mañana a las 2 PM"),
-        ("2026-10-30 12:00", "hoy a las 2 PM o mañana a las 2 PM"),  # 12+2 = 14 exacto, válido
-        ("2026-10-30 12:01", "hoy a las 3 PM o mañana a las 2 PM"),  # un minuto tarde, salta a 3 PM
-        ("2026-10-30 15:30", "hoy a las 6 PM o mañana a las 2 PM"),
-        ("2026-10-30 17:00", "hoy a las 7 PM o mañana a las 2 PM"),  # última sesión del día
-        ("2026-10-30 17:01", "mañana a las 2 PM o el domingo a las 2 PM"),
-        ("2026-10-30 23:59", "mañana a las 2 PM o el domingo a las 2 PM"),
+        ("2026-10-30 09:00", "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM"),
+        # recién pasada la medianoche
+        ("2026-10-30 00:30", "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM"),
+        ("2026-10-30 11:59", "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM"),
+        # 12+2 = 14 exacto, válido
+        ("2026-10-30 12:00", "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM"),
+        # un minuto tarde, salta a 3 PM
+        ("2026-10-30 12:01", "hoy viernes 30 de octubre a las 3 PM o mañana sábado 31 de octubre a las 2 PM"),
+        ("2026-10-30 15:30", "hoy viernes 30 de octubre a las 6 PM o mañana sábado 31 de octubre a las 2 PM"),
+        # última sesión del día
+        ("2026-10-30 17:00", "hoy viernes 30 de octubre a las 7 PM o mañana sábado 31 de octubre a las 2 PM"),
+        ("2026-10-30 17:01", "mañana sábado 31 de octubre a las 2 PM o el domingo 1 de noviembre a las 2 PM"),
+        ("2026-10-30 23:59", "mañana sábado 31 de octubre a las 2 PM o el domingo 1 de noviembre a las 2 PM"),
         # Fin de semana: hoy se ofrecen sábado y domingo (el horario 2–8 PM aplica todos los días)
-        ("2026-10-31 10:00", "hoy a las 2 PM o mañana a las 2 PM"),
-        ("2026-10-31 18:00", "mañana a las 2 PM o el lunes a las 2 PM"),
-        ("2026-11-01 20:00", "mañana a las 2 PM o el martes a las 2 PM"),
+        ("2026-10-31 10:00", "hoy sábado 31 de octubre a las 2 PM o mañana domingo 1 de noviembre a las 2 PM"),
+        ("2026-10-31 18:00", "mañana domingo 1 de noviembre a las 2 PM o el lunes 2 de noviembre a las 2 PM"),
+        ("2026-11-01 20:00", "mañana lunes 2 de noviembre a las 2 PM o el martes 3 de noviembre a las 2 PM"),
     ],
 )
 def test_calcular_horarios_bordes(instante_mx, esperado):
@@ -93,10 +110,15 @@ def test_calcular_horarios_bordes(instante_mx, esperado):
 @freeze_time("2026-10-30 15:00:00")  # 15:00 UTC = 09:00 MX
 def test_calcular_horarios_cantidad_y_rango_configurable():
     ahora = _ahora_mx()
-    assert calcular_horarios(ahora, cantidad=1) == "hoy a las 2 PM"
-    assert calcular_horarios(ahora, cantidad=3) == "hoy a las 2 PM o mañana a las 2 PM o el domingo a las 2 PM"
-    assert calcular_horarios(ahora, hora_inicio=16, hora_fin=18).startswith("hoy a las 4 PM")
-    assert calcular_horarios(ahora, margen_horas=8) == "hoy a las 5 PM o mañana a las 2 PM"
+    assert calcular_horarios(ahora, cantidad=1) == "hoy viernes 30 de octubre a las 2 PM"
+    assert calcular_horarios(ahora, cantidad=3) == (
+        "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM"
+        " o el domingo 1 de noviembre a las 2 PM"
+    )
+    assert calcular_horarios(ahora, hora_inicio=16, hora_fin=18).startswith("hoy viernes 30 de octubre a las 4 PM")
+    assert calcular_horarios(ahora, margen_horas=8) == (
+        "hoy viernes 30 de octubre a las 5 PM o mañana sábado 31 de octubre a las 2 PM"
+    )
 
 
 def test_calcular_horarios_nunca_ofrece_fuera_de_rango():
@@ -127,7 +149,7 @@ def test_renderizar_falla_si_falta_variable():
 def test_prompt_de_ejemplo_se_renderiza_completo():
     texto = cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX))
     assert "{{" not in texto
-    assert "hoy a las 2 PM o mañana a las 2 PM" in texto
+    assert "hoy viernes 30 de octubre a las 2 PM o mañana sábado 31 de octubre a las 2 PM" in texto
     assert "derivar_a_eduardo" in texto
     assert prompt.ruta_prompt() == prompt.RUTA_EJEMPLO
 
@@ -136,7 +158,7 @@ def test_prompt_real_tiene_prioridad_sobre_el_ejemplo(monkeypatch, tmp_path):
     real = tmp_path / "sofia.md"
     real.write_text("Prompt real {{fecha_hora}}", encoding="utf-8")
     monkeypatch.setattr(prompt, "RUTA_PROMPT", real)
-    assert cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX)).startswith("Prompt real Friday")
+    assert cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX)).startswith("Prompt real viernes 30 de octubre de 2026")
 
 
 def test_sin_prompt_real_avisa_una_sola_vez(monkeypatch, caplog):
@@ -149,8 +171,8 @@ def test_sin_prompt_real_avisa_una_sola_vez(monkeypatch, caplog):
 @freeze_time("2026-10-31 02:00:00")  # 02:00 UTC sábado = 20:00 MX viernes
 def test_prompt_usa_hora_de_mexico_por_defecto():
     texto = cargar_prompt()
-    assert "30/10/2026 08:00 PM" in texto
-    assert "mañana a las 2 PM o el domingo a las 2 PM" in texto
+    assert "viernes 30 de octubre de 2026, 08:00 PM" in texto
+    assert "mañana sábado 31 de octubre a las 2 PM o el domingo 1 de noviembre a las 2 PM" in texto
 
 
 # --- historial -----------------------------------------------------------
