@@ -35,9 +35,9 @@
 - [x] Meta: cobertura ≥80%.
 
 ## Día 3 — Guardrails en código (Poka-yoke)
-- [ ] **Crisis pre-LLM:** clasificador (keywords + llamada Haiku corta) → respuesta fija con Línea de la Vida 800 911 2000 + alerta a Eduardo + pausa de venta. No depender solo del prompt.
-- [ ] **Validador de salida:** signos/palabras prohibidas, markdown, longitud, precio ≠ $300 → reintento 1 vez, luego fallback seguro.
-- [ ] Tests de cada guardrail.
+- [x] **Crisis pre-LLM:** clasificador (keywords + llamada Haiku corta) → respuesta fija con Línea de la Vida 800 911 2000 + alerta a Eduardo + pausa de venta. No depender solo del prompt.
+- [x] **Validador de salida:** signos/palabras prohibidas, markdown, longitud, precio ≠ $300 → reintento 1 vez, luego fallback seguro.
+- [x] Tests de cada guardrail.
 
 ## Día 4 — Derivación + alertas
 - [ ] Tool use de Claude: `derivar_a_eduardo(motivo)`.

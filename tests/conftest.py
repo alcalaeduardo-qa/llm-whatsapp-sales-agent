@@ -23,6 +23,11 @@ def config_de_prueba(monkeypatch):
     monkeypatch.setattr(config, "PHONE_NUMBER_ID", "111")
     monkeypatch.setattr(config, "GRAPH_API_VERSION", "v26.0")
     monkeypatch.setattr(config, "LOG_CONTENIDO", False)
+    monkeypatch.setattr(config, "TELEGRAM_BOT_TOKEN", "bot-token")
+    monkeypatch.setattr(config, "TELEGRAM_CHAT_ID", "999")
+    monkeypatch.setattr(config, "CRISIS_LLM", True)
+    monkeypatch.setattr(config, "MAX_CARACTERES", 900)
+    monkeypatch.setattr(config, "MAX_PARRAFOS", 4)
 
 
 def firmar(cuerpo: bytes) -> str:

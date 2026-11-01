@@ -109,3 +109,61 @@ async def test_historial_cronologico_y_limitado(db):
 )
 def test_es_duplicado(error, esperado):
     assert store._es_duplicado(error) is esperado
+
+
+# --- conversaciones / pausa de venta ---------------------------------------
+class SupabaseConversaciones:
+    """Solo la tabla conversaciones: upsert por teléfono y select con eq."""
+
+    def __init__(self, error=None):
+        self.filas: dict[str, dict] = {}
+        self.error = error
+        self._filtro = None
+        self._fila = None
+
+    def table(self, nombre):
+        assert nombre == "conversaciones"
+        self._filtro = self._fila = None
+        return self
+
+    def upsert(self, fila):
+        self._fila = fila
+        return self
+
+    def select(self, _columnas):
+        return self
+
+    def eq(self, _columna, valor):
+        self._filtro = valor
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def execute(self):
+        if self.error:
+            raise self.error
+        if self._fila:
+            self.filas[self._fila["telefono"]] = self._fila
+            return SimpleNamespace(data=[self._fila])
+        fila = self.filas.get(self._filtro)
+        return SimpleNamespace(data=[fila] if fila else [])
+
+
+@pytest.mark.anyio
+async def test_pausar_y_consultar_venta(monkeypatch):
+    db = SupabaseConversaciones()
+    monkeypatch.setattr(store, "_cliente", lambda: db)
+    assert await store.venta_pausada("521") is False
+    await store.pausar_venta("521", "crisis")
+    assert await store.venta_pausada("521") is True
+    assert db.filas["521"]["motivo_pausa"] == "crisis"
+    assert db.filas["521"]["pausada_en"].endswith("+00:00")
+
+
+@pytest.mark.anyio
+async def test_pausa_tolera_fallas_de_la_base(monkeypatch, caplog):
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseConversaciones(error=RuntimeError("no existe la tabla")))
+    assert await store.venta_pausada("521") is False
+    await store.pausar_venta("521", "crisis")  # no lanza
+    assert "No se pudo pausar la venta" in caplog.text
