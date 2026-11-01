@@ -1,123 +1,15 @@
-"""Webhook de punta a punta: Meta y Telegram mockeados con respx, Claude con un transporte
-falso de httpx2 (el SDK de Anthropic no usa httpx) y un store en memoria."""
+"""Webhook de punta a punta con los dobles de tests/falsos.py (Meta y Telegram con respx,
+Claude con un transporte falso de httpx2 y un store en memoria)."""
 
 import json
 import logging
 
 import httpx
-import httpx2
 import pytest
-import respx
-from anthropic import AsyncAnthropic
-from fastapi.testclient import TestClient
 
-from app import guardrails, llm, main, store
+from app import guardrails
 from tests.conftest import payload, post_firmado
-
-URL_META = "https://graph.facebook.com/v26.0/111/messages"
-URL_TELEGRAM = "https://api.telegram.org/botbot-token/sendMessage"
-SALUDO = "Hola, soy Sofía: ¿qué te trae por aquí?"
-
-
-class StoreFalso:
-    """Mismo contrato que app.store, en memoria."""
-
-    def __init__(self):
-        self.filas: list[dict] = []
-        self.ids: set[str] = set()
-        self.pausadas: dict[str, str] = {}
-
-    async def registrar_entrante(self, telefono, contenido, wa_message_id):
-        if wa_message_id in self.ids:
-            return False
-        self.ids.add(wa_message_id)
-        self.filas.append({"telefono": telefono, "rol": "user", "contenido": contenido})
-        return True
-
-    async def guardar_respuesta(self, telefono, contenido):
-        self.filas.append({"telefono": telefono, "rol": "assistant", "contenido": contenido})
-
-    async def obtener_historial(self, telefono, limite=20):
-        propias = [f for f in self.filas if f["telefono"] == telefono][-limite:]
-        return store.preparar_historial(propias)
-
-    async def venta_pausada(self, telefono):
-        return telefono in self.pausadas
-
-    async def pausar_venta(self, telefono, motivo):
-        self.pausadas[telefono] = motivo
-
-
-class ClaudeFalso:
-    """Responde como la API de Messages. Separa las llamadas del clasificador de crisis
-    de las de generación; `respuestas` se consume en orden y repite la última."""
-
-    def __init__(self):
-        self.peticiones: list[dict] = []
-        self.clasificaciones: list[dict] = []
-        self.respuestas: list[list[dict]] = [[{"type": "text", "text": SALUDO}]]
-        self.veredicto = "NO"
-        self.clasificador_falla = False
-        self.stop_reason = "end_turn"
-
-    def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        cuerpo = json.loads(request.content)
-        if cuerpo["system"] == llm.PROMPT_CLASIFICADOR:
-            self.clasificaciones.append(cuerpo)
-            if self.clasificador_falla:
-                return httpx2.Response(500, json={"type": "error", "error": {"type": "api_error", "message": "x"}})
-            return self._mensaje([{"type": "text", "text": self.veredicto}], "end_turn")
-        self.peticiones.append(cuerpo)
-        indice = min(len(self.peticiones), len(self.respuestas)) - 1
-        return self._mensaje(self.respuestas[indice], self.stop_reason)
-
-    @staticmethod
-    def _mensaje(contenido, stop_reason):
-        return httpx2.Response(
-            200,
-            json={
-                "id": "msg_test",
-                "type": "message",
-                "role": "assistant",
-                "model": "claude-haiku-5-5",
-                "content": contenido,
-                "stop_reason": stop_reason,
-                "stop_sequence": None,
-                "usage": {"input_tokens": 120, "output_tokens": 15},
-            },
-        )
-
-
-def _texto(t):
-    return [{"type": "text", "text": t}]
-
-
-@pytest.fixture
-def entorno(monkeypatch):
-    falso = StoreFalso()
-    for nombre in ("registrar_entrante", "guardar_respuesta", "obtener_historial", "venta_pausada", "pausar_venta"):
-        monkeypatch.setattr(store, nombre, getattr(falso, nombre))
-
-    claude = ClaudeFalso()
-    cliente_claude = AsyncAnthropic(
-        api_key="sk-test",
-        max_retries=0,
-        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(claude)),
-    )
-    monkeypatch.setattr(llm, "_cliente", lambda: cliente_claude)
-
-    with respx.mock(assert_all_called=False) as mock:
-        meta = mock.post(URL_META).mock(return_value=httpx.Response(200, json={"messages": [{"id": "wamid.OUT"}]}))
-        tg = mock.post(URL_TELEGRAM).mock(return_value=httpx.Response(200, json={"ok": True}))
-        yield {"store": falso, "claude": claude, "meta": meta, "telegram": tg, "http": TestClient(main.app)}
-
-
-def _enviados(ruta):
-    return [json.loads(c.request.content)["text"]["body"] for c in ruta.calls]
-
-
-def _alertas(ruta):
-    return [json.loads(c.request.content)["text"] for c in ruta.calls]
+from tests.falsos import _alertas, _enviados, _texto
 
 
 # --- Flujo normal ------------------------------------------------------------
@@ -164,7 +56,7 @@ def test_evento_de_estado_no_llama_a_nadie(entorno):
     assert entorno["claude"].peticiones == [] and entorno["meta"].call_count == 0
 
 
-@pytest.mark.parametrize("tipo", ["audio", "image", "sticker"])
+@pytest.mark.parametrize("tipo", ["audio", "sticker", "reaction"])
 def test_no_texto_no_llama_a_nadie(entorno, tipo):
     assert post_firmado(entorno["http"], payload(tipo=tipo)).json() == {"status": "ignorado"}
     assert entorno["claude"].peticiones == [] and entorno["meta"].call_count == 0
@@ -281,7 +173,8 @@ def test_dos_respuestas_invalidas_usan_respaldo_y_alertan(entorno):
     assert len(entorno["claude"].peticiones) == 2  # un solo reintento
     assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_RESPALDO]
     (alerta,) = _alertas(entorno["telegram"])
-    assert "respaldo" in alerta and "palabra prohibida terapia" in alerta
+    assert "Derivación de +5214931234567 (respaldo)" in alerta and "palabra prohibida terapia" in alerta
+    assert entorno["store"].humano == {"5214931234567": "respaldo"}  # el respaldo promete que Eduardo escribe
     assert entorno["store"].filas[-1]["contenido"] == guardrails.RESPUESTA_RESPALDO
 
 

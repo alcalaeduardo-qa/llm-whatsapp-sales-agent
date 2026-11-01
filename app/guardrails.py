@@ -25,6 +25,10 @@ RESPUESTA_PAUSA = (
     "es gratuita y atiende las 24 horas, o a tu número local de emergencias."
 )
 
+RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalmente a la brevedad."
+
+RESPUESTA_COMPROBANTE = "Gracias, recibí tu archivo. Eduardo lo revisa y te confirma personalmente a la brevedad."
+
 RESPUESTA_RESPALDO = "Gracias por escribirme. Eduardo te escribirá personalmente a la brevedad para darte seguimiento."
 
 

@@ -144,26 +144,52 @@ class SupabaseConversaciones:
         if self.error:
             raise self.error
         if self._fila:
-            self.filas[self._fila["telefono"]] = self._fila
-            return SimpleNamespace(data=[self._fila])
+            # Como PostgREST: el upsert solo cambia las columnas enviadas
+            telefono = self._fila["telefono"]
+            self.filas[telefono] = {**self.filas.get(telefono, {}), **self._fila}
+            return SimpleNamespace(data=[self.filas[telefono]])
         fila = self.filas.get(self._filtro)
         return SimpleNamespace(data=[fila] if fila else [])
 
 
-@pytest.mark.anyio
-async def test_pausar_y_consultar_venta(monkeypatch):
+@pytest.fixture
+def conversaciones(monkeypatch):
     db = SupabaseConversaciones()
     monkeypatch.setattr(store, "_cliente", lambda: db)
-    assert await store.venta_pausada("521") is False
-    await store.pausar_venta("521", "crisis")
-    assert await store.venta_pausada("521") is True
-    assert db.filas["521"]["motivo_pausa"] == "crisis"
-    assert db.filas["521"]["pausada_en"].endswith("+00:00")
+    return db
 
 
 @pytest.mark.anyio
-async def test_pausa_tolera_fallas_de_la_base(monkeypatch, caplog):
+async def test_estado_inicial_sin_fila(conversaciones):
+    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+
+
+@pytest.mark.anyio
+async def test_pausar_venta(conversaciones):
+    assert await store.pausar_venta("521", "crisis") is True
+    assert (await store.obtener_estado("521"))["venta_pausada"] is True
+    fila = conversaciones.filas["521"]
+    assert fila["motivo_pausa"] == "crisis"
+    assert fila["pausada_en"].endswith("+00:00") and fila["actualizado_en"].endswith("+00:00")
+
+
+@pytest.mark.anyio
+async def test_modo_humano_y_reanudar(conversaciones):
+    await store.pausar_venta("521", "crisis")
+    await store.activar_humano("521", "comprobante")
+    assert await store.obtener_estado("521") == {"venta_pausada": True, "humano_activo": True}
+    assert conversaciones.filas["521"]["motivo_humano"] == "comprobante"
+
+    assert await store.reanudar("521") is True
+    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+    assert conversaciones.filas["521"]["motivo_pausa"] == "crisis"  # se conserva el historial del motivo
+
+
+@pytest.mark.anyio
+async def test_estado_tolera_fallas_de_la_base(monkeypatch, caplog):
     monkeypatch.setattr(store, "_cliente", lambda: SupabaseConversaciones(error=RuntimeError("no existe la tabla")))
-    assert await store.venta_pausada("521") is False
-    await store.pausar_venta("521", "crisis")  # no lanza
+    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+    assert await store.pausar_venta("521", "crisis") is False  # no lanza
+    assert await store.activar_humano("521", "comprobante") is False
+    assert await store.reanudar("521") is False
     assert "No se pudo pausar la venta" in caplog.text

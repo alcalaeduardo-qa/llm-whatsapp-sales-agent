@@ -34,6 +34,8 @@ MAX_PARRAFOS = int(os.getenv("MAX_PARRAFOS", "4"))
 # Alertas a Eduardo por Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+# Secreto que Telegram manda en cada update; se elige libremente (A-Z, a-z, 0-9, _ y -).
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 
 # En producción no se registra el contenido de los mensajes (datos sensibles).
 LOG_CONTENIDO = os.getenv("LOG_CONTENIDO", "false").lower() == "true"

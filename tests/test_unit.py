@@ -184,6 +184,27 @@ def test_extraer_mensaje_body_malformado(body):
     assert extraer_mensaje(body) is None
 
 
-def test_extraer_mensaje_sin_texto():
-    body = {"entry": [{"changes": [{"value": {"messages": [{"from": "1", "id": "w", "type": "image"}]}}]}]}
-    assert extraer_mensaje(body) == {"from": "1", "id": "w", "type": "image", "text": None}
+def _body(mensaje):
+    return {"entry": [{"changes": [{"value": {"messages": [mensaje]}}]}]}
+
+
+def test_extraer_mensaje_imagen_con_leyenda():
+    body = _body({"from": "1", "id": "w", "type": "image", "image": {"id": "MEDIA1", "caption": "ya pagué"}})
+    assert extraer_mensaje(body) == {
+        "from": "1",
+        "id": "w",
+        "type": "image",
+        "text": None,
+        "media_id": "MEDIA1",
+        "caption": "ya pagué",
+    }
+
+
+def test_extraer_mensaje_documento_sin_leyenda():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "document", "document": {"id": "M2"}}))
+    assert mensaje["media_id"] == "M2" and mensaje["caption"] is None
+
+
+def test_extraer_mensaje_audio_no_es_media_de_comprobante():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "audio", "audio": {"id": "A1"}}))
+    assert mensaje["media_id"] is None

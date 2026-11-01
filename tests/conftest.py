@@ -5,6 +5,7 @@ import json
 import pytest
 
 from app import config
+from tests.falsos import entorno  # noqa: F401  (fixture compartido)
 
 SECRETO = "secreto-de-prueba"
 
