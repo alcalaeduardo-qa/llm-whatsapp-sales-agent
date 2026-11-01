@@ -4,7 +4,7 @@ import logging
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from app import config, llm, store, whatsapp
+from app import config, guardrails, llm, store, telegram, whatsapp
 from app.text import huella, normalizar_numero
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -20,6 +20,47 @@ def _desc(texto: str) -> str:
     return f"<{len(texto)} chars #{huella(texto)}>"
 
 
+async def generar_validada(historial: list[dict], remitente: str) -> str:
+    """Respuesta de Claude que pasa el validador; un reintento con la corrección y luego respaldo fijo."""
+    respuesta = await llm.generar_respuesta(historial)
+    problemas = guardrails.validar_salida(respuesta)
+    if not problemas:
+        return respuesta
+
+    logger.warning("Respuesta descartada por %s; se reintenta", problemas)
+    respuesta = await llm.generar_respuesta(historial, correccion=", ".join(problemas))
+    problemas = guardrails.validar_salida(respuesta)
+    if not problemas:
+        return respuesta
+
+    logger.warning("Segundo intento descartado por %s; se usa el respaldo", problemas)
+    await telegram.alertar(
+        f"⚠️ Sofía no logró una respuesta válida para +{remitente} ({', '.join(problemas)}). "
+        "Se envió el mensaje de respaldo, conviene escribirle."
+    )
+    return guardrails.RESPUESTA_RESPALDO
+
+
+async def atender_crisis(remitente: str, nueva: bool) -> None:
+    """Respuesta fija (no pasa por el modelo), pausa de venta y alerta a Eduardo."""
+    if nueva:
+        await store.pausar_venta(remitente, "crisis")
+        respuesta = guardrails.RESPUESTA_CRISIS
+        alerta = (
+            f"🚨 Posible crisis de +{remitente}. Sofía detuvo la venta y compartió la Línea de la Vida. "
+            "Escríbele personalmente."
+        )
+    else:
+        respuesta = guardrails.RESPUESTA_PAUSA
+        alerta = f"Nuevo mensaje de +{remitente}, conversación en pausa por crisis. Sofía respondió con contención."
+
+    await store.guardar_respuesta(remitente, respuesta)
+    try:
+        await whatsapp.enviar_texto(normalizar_numero(remitente), respuesta)
+    finally:
+        await telegram.alertar(alerta)
+
+
 async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> None:
     try:
         es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
@@ -27,12 +68,18 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             logger.info("Mensaje duplicado %s, se ignora", wa_message_id)
             return
 
-        historial = await store.obtener_historial(remitente)
-        respuesta = await llm.generar_respuesta(historial)
-        if not respuesta:
-            logger.warning("Claude no devolvió texto (msg %s)", wa_message_id)
+        if await store.venta_pausada(remitente):
+            await atender_crisis(remitente, nueva=False)
             return
 
+        historial = await store.obtener_historial(remitente)
+        recientes = [m["content"] for m in historial if m["role"] == "user"][-3:] or [texto]
+        if await guardrails.detectar_crisis(recientes):
+            logger.warning("Crisis detectada (msg %s)", wa_message_id)
+            await atender_crisis(remitente, nueva=True)
+            return
+
+        respuesta = await generar_validada(historial, remitente)
         logger.info("Sofía responde %s", _desc(respuesta))
         await store.guardar_respuesta(remitente, respuesta)
         await whatsapp.enviar_texto(normalizar_numero(remitente), respuesta)
@@ -68,7 +115,7 @@ async def recibir(request: Request, tareas: BackgroundTasks):
     try:
         body = json.loads(cuerpo)
     except ValueError:
-        raise HTTPException(status_code=400, detail="JSON inválido")
+        raise HTTPException(status_code=400, detail="JSON inválido") from None
 
     mensaje = whatsapp.extraer_mensaje(body)
     if mensaje is None:

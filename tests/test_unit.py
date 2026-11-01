@@ -1,12 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
+from freezegun import freeze_time
 
 from app import config
-from app.prompt import RUTA_PROMPT, renderizar
+from app.prompt import RUTA_PROMPT, cargar_prompt, renderizar
 from app.scheduling import calcular_horarios
 from app.store import preparar_historial
-from app.text import limpiar_texto, normalizar_numero
+from app.text import huella, limpiar_texto, normalizar_numero
+from app.whatsapp import extraer_mensaje, firma_valida
 
 MX = config.ZONA_MX
 
@@ -16,8 +18,11 @@ MX = config.ZONA_MX
     "entrada, esperado",
     [
         ("5214931234567", "524931234567"),  # móvil MX con 1
-        ("524931234567", "524931234567"),   # ya normalizado
-        ("573001234567", "573001234567"),   # Colombia, sin cambios
+        ("524931234567", "524931234567"),  # ya normalizado
+        ("573001234567", "573001234567"),  # Colombia, sin cambios
+        ("584121234567", "584121234567"),  # Venezuela, sin cambios
+        ("52149312345", "52149312345"),  # empieza con 521 pero longitud incorrecta
+        ("", ""),
     ],
 )
 def test_normalizar_numero(entrada, esperado):
@@ -26,42 +31,92 @@ def test_normalizar_numero(entrada, esperado):
 
 # --- limpiar_texto (regresión del NameError por falta de `import re`) ----
 def test_limpiar_texto_quita_signos_prohibidos():
-    texto = 'Hola “amiga”... mira esto — es clave: respira; ya'
+    texto = "Hola “amiga”... mira esto — es clave: respira; ya"
     assert limpiar_texto(texto) == "Hola amiga. mira esto, es clave, respira, ya"
+
+
+@pytest.mark.parametrize(
+    "entrada, esperado",
+    [
+        ('Dijo "basta"', "Dijo basta"),
+        ("«Suelta» eso", "Suelta eso"),
+        ("Espera… ya", "Espera. ya"),
+        ("uno – dos - tres", "uno, dos, tres"),
+        ("auto-estima y co-dependencia", "auto-estima y co-dependencia"),  # guion sin espacios se respeta
+        ("Son las 2:30 PM", "Son las 2:30 PM"),  # dos puntos sin espacio se respetan
+        ("  con espacios  ", "con espacios"),
+        ("", ""),
+    ],
+)
+def test_limpiar_texto_casos(entrada, esperado):
+    assert limpiar_texto(entrada) == esperado
 
 
 def test_limpiar_texto_respeta_enlaces():
     assert limpiar_texto("Paga aquí https://buy.stripe.com/abc") == "Paga aquí https://buy.stripe.com/abc"
 
 
-# --- calcular_horarios ---------------------------------------------------
-def _mx(y, m, d, h, mi=0):
-    return datetime(y, m, d, h, mi, tzinfo=MX)
+def test_huella_es_estable_y_corta():
+    assert huella("hola") == huella("hola") != huella("Hola")
+    assert len(huella("hola")) == 10
 
 
-def test_horarios_manana_temprano_ofrece_hoy_y_manana():
-    # Viernes 30/10/2026 9:00 → primer horario hoy 2 PM
-    assert calcular_horarios(_mx(2026, 10, 30, 9)) == "hoy a las 2 PM o mañana a las 2 PM"
+# --- calcular_horarios (freezegun congela el reloj; MX = UTC-6 sin horario de verano) ---
+def _ahora_mx():
+    return datetime.now(MX)
 
 
-def test_horarios_respeta_margen_de_dos_horas():
-    # 15:30 + 2h = 17:30 → siguiente inicio 6 PM
-    assert calcular_horarios(_mx(2026, 10, 30, 15, 30)).startswith("hoy a las 6 PM")
+@pytest.mark.parametrize(
+    "instante_mx, esperado",
+    [
+        # Viernes 30/10/2026
+        ("2026-10-30 09:00", "hoy a las 2 PM o mañana a las 2 PM"),
+        ("2026-10-30 00:30", "hoy a las 2 PM o mañana a las 2 PM"),  # recién pasada la medianoche
+        ("2026-10-30 11:59", "hoy a las 2 PM o mañana a las 2 PM"),
+        ("2026-10-30 12:00", "hoy a las 2 PM o mañana a las 2 PM"),  # 12+2 = 14 exacto, válido
+        ("2026-10-30 12:01", "hoy a las 3 PM o mañana a las 2 PM"),  # un minuto tarde, salta a 3 PM
+        ("2026-10-30 15:30", "hoy a las 6 PM o mañana a las 2 PM"),
+        ("2026-10-30 17:00", "hoy a las 7 PM o mañana a las 2 PM"),  # última sesión del día
+        ("2026-10-30 17:01", "mañana a las 2 PM o el domingo a las 2 PM"),
+        ("2026-10-30 23:59", "mañana a las 2 PM o el domingo a las 2 PM"),
+        # Fin de semana: hoy se ofrecen sábado y domingo (el horario 2–8 PM aplica todos los días)
+        ("2026-10-31 10:00", "hoy a las 2 PM o mañana a las 2 PM"),
+        ("2026-10-31 18:00", "mañana a las 2 PM o el lunes a las 2 PM"),
+        ("2026-11-01 20:00", "mañana a las 2 PM o el martes a las 2 PM"),
+    ],
+)
+def test_calcular_horarios_bordes(instante_mx, esperado):
+    with freeze_time(datetime.fromisoformat(instante_mx).replace(tzinfo=MX)):
+        assert calcular_horarios(_ahora_mx()) == esperado
 
 
-def test_horarios_tarde_salta_a_dias_siguientes():
-    # 18:00 + 2h = 20:00 → hoy ya no hay; sábado y domingo
-    assert calcular_horarios(_mx(2026, 10, 30, 18)) == "mañana a las 2 PM o el domingo a las 2 PM"
+@freeze_time("2026-10-30 15:00:00")  # 15:00 UTC = 09:00 MX
+def test_calcular_horarios_cantidad_y_rango_configurable():
+    ahora = _ahora_mx()
+    assert calcular_horarios(ahora, cantidad=1) == "hoy a las 2 PM"
+    assert calcular_horarios(ahora, cantidad=3) == "hoy a las 2 PM o mañana a las 2 PM o el domingo a las 2 PM"
+    assert calcular_horarios(ahora, hora_inicio=16, hora_fin=18).startswith("hoy a las 4 PM")
+    assert calcular_horarios(ahora, margen_horas=8) == "hoy a las 5 PM o mañana a las 2 PM"
 
 
-def test_horarios_limite_exacto_es_valido():
-    # 17:00 + 2h = 19:00 → 7 PM es la última sesión del día
-    assert calcular_horarios(_mx(2026, 10, 30, 17)).startswith("hoy a las 7 PM")
+def test_calcular_horarios_nunca_ofrece_fuera_de_rango():
+    # Barrido de cada media hora durante una semana: toda opción cae entre 2 PM y 7 PM
+    validas = {f"{h} PM" for h in range(2, 8)}
+    inicio = datetime(2026, 10, 26, tzinfo=MX)
+    for paso in range(7 * 48):
+        opciones = calcular_horarios(inicio + timedelta(minutes=30 * paso)).split(" o ")
+        assert len(opciones) == 2
+        for opcion in opciones:
+            assert opcion.split(" a las ")[1] in validas
 
 
 # --- prompt --------------------------------------------------------------
 def test_renderizar_sustituye_y_conserva_signo_de_pesos():
     assert renderizar("Cuesta $300. Hoy es {{dia}}", {"dia": "viernes"}) == "Cuesta $300. Hoy es viernes"
+
+
+def test_renderizar_tolera_llaves_sueltas():
+    assert renderizar('JSON {"a": 1} y {{x}}', {"x": "ok"}) == 'JSON {"a": 1} y ok'
 
 
 def test_renderizar_falla_si_falta_variable():
@@ -70,12 +125,17 @@ def test_renderizar_falla_si_falta_variable():
 
 
 def test_prompt_real_se_renderiza_completo():
-    from app.prompt import cargar_prompt
-
-    texto = cargar_prompt(_mx(2026, 10, 30, 9))
+    texto = cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX))
     assert "{{" not in texto
     assert "hoy a las 2 PM o mañana a las 2 PM" in texto
     assert RUTA_PROMPT.exists()
+
+
+@freeze_time("2026-10-31 02:00:00")  # 02:00 UTC sábado = 20:00 MX viernes
+def test_prompt_usa_hora_de_mexico_por_defecto():
+    texto = cargar_prompt()
+    assert "30/10/2026 08:00 PM" in texto
+    assert "mañana a las 2 PM o el domingo a las 2 PM" in texto
 
 
 # --- historial -----------------------------------------------------------
@@ -89,3 +149,41 @@ def test_historial_inicia_con_user():
         {"role": "user", "content": "u"},
         {"role": "assistant", "content": "b"},
     ]
+
+
+def test_historial_solo_assistant_queda_vacio():
+    assert preparar_historial([{"rol": "assistant", "contenido": "a"}]) == []
+
+
+# --- whatsapp: firma y parseo -------------------------------------------
+@pytest.mark.parametrize(
+    "encabezado, secreto, valido",
+    [
+        (None, "s", False),
+        ("", "s", False),
+        ("md5=abc", "s", False),
+        ("sha256=abc", "", False),
+    ],
+)
+def test_firma_valida_casos_invalidos(encabezado, secreto, valido, monkeypatch):
+    monkeypatch.setattr(config, "APP_SECRET", "")
+    assert firma_valida(b"{}", encabezado, secreto or None) is valido
+
+
+def test_firma_valida_detecta_cuerpo_alterado():
+    import hashlib
+    import hmac
+
+    firma = "sha256=" + hmac.new(b"s", b'{"a":1}', hashlib.sha256).hexdigest()
+    assert firma_valida(b'{"a":1}', firma, "s") is True
+    assert firma_valida(b'{"a":2}', firma, "s") is False
+
+
+@pytest.mark.parametrize("body", [{}, {"entry": []}, {"entry": [{"changes": []}]}, None, []])
+def test_extraer_mensaje_body_malformado(body):
+    assert extraer_mensaje(body) is None
+
+
+def test_extraer_mensaje_sin_texto():
+    body = {"entry": [{"changes": [{"value": {"messages": [{"from": "1", "id": "w", "type": "image"}]}}]}]}
+    assert extraer_mensaje(body) == {"from": "1", "id": "w", "type": "image", "text": None}
