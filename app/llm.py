@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from functools import lru_cache
 
-from app import config
+from app import calendario, config
 from app.prompt import cargar_prompt
 from app.text import limpiar_texto
 
@@ -65,7 +66,8 @@ def _cliente():
 async def generar_respuesta(
     historial: list[dict], correccion: str | None = None, contexto: str | None = None
 ) -> Respuesta:
-    system = cargar_prompt()
+    ahora = datetime.now(config.ZONA_MX)
+    system = cargar_prompt(ahora, await calendario.opciones_horario(ahora))
     if contexto:
         system += f"\n\n{contexto}"
     if correccion:

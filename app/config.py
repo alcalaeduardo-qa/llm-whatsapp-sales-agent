@@ -28,6 +28,13 @@ HISTORIAL_MAX = int(os.getenv("HISTORIAL_MAX", "20"))
 HORA_INICIO = int(os.getenv("HORA_INICIO", "14"))
 HORA_FIN = int(os.getenv("HORA_FIN", "20"))
 MARGEN_HORAS = int(os.getenv("MARGEN_HORAS", "2"))
+SESION_MINUTOS = int(os.getenv("SESION_MINUTOS", "60"))
+
+# Calendario de Eduardo en iCloud (CalDAV). La contraseña es una "contraseña de app" de appleid.apple.com,
+# no la del Apple ID. Sin estos datos Sofía ofrece horarios calculados sin consultar el calendario.
+ICLOUD_USUARIO = os.getenv("ICLOUD_USUARIO", "")
+ICLOUD_PASSWORD_APP = os.getenv("ICLOUD_PASSWORD_APP", "")
+ICLOUD_CALENDARIO = os.getenv("ICLOUD_CALENDARIO", "Casa")
 
 # Guardrails
 CRISIS_LLM = os.getenv("CRISIS_LLM", "true").lower() == "true"
