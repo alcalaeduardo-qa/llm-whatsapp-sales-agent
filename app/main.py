@@ -68,7 +68,7 @@ async def recibir(request: Request, tareas: BackgroundTasks):
     try:
         body = json.loads(cuerpo)
     except ValueError:
-        raise HTTPException(status_code=400, detail="JSON inválido")
+        raise HTTPException(status_code=400, detail="JSON inválido") from None
 
     mensaje = whatsapp.extraer_mensaje(body)
     if mensaje is None:

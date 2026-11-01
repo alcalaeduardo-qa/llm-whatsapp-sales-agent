@@ -21,12 +21,14 @@ def _es_duplicado(error: Exception) -> bool:
 def _registrar_entrante(telefono: str, contenido: str, wa_message_id: str) -> bool:
     """Inserta el mensaje del usuario. Devuelve False si ya existía (reintento de Meta)."""
     try:
-        _cliente().table("mensajes").insert({
-            "telefono": telefono,
-            "rol": "user",
-            "contenido": contenido,
-            "wa_message_id": wa_message_id,
-        }).execute()
+        _cliente().table("mensajes").insert(
+            {
+                "telefono": telefono,
+                "rol": "user",
+                "contenido": contenido,
+                "wa_message_id": wa_message_id,
+            }
+        ).execute()
         return True
     except Exception as e:
         if _es_duplicado(e):
@@ -35,16 +37,19 @@ def _registrar_entrante(telefono: str, contenido: str, wa_message_id: str) -> bo
 
 
 def _guardar_respuesta(telefono: str, contenido: str) -> None:
-    _cliente().table("mensajes").insert({
-        "telefono": telefono,
-        "rol": "assistant",
-        "contenido": contenido,
-    }).execute()
+    _cliente().table("mensajes").insert(
+        {
+            "telefono": telefono,
+            "rol": "assistant",
+            "contenido": contenido,
+        }
+    ).execute()
 
 
 def _obtener_historial(telefono: str, limite: int) -> list[dict]:
     resultado = (
-        _cliente().table("mensajes")
+        _cliente()
+        .table("mensajes")
         .select("rol, contenido")
         .eq("telefono", telefono)
         .order("creado_en", desc=True)
