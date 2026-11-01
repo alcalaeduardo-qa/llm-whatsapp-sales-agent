@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app import config
-from app.scheduling import calcular_horarios
+from app.scheduling import calcular_horarios, fecha_hora_legible
 
 logger = logging.getLogger("sofia.prompt")
 
@@ -37,7 +37,7 @@ def renderizar(plantilla: str, valores: dict) -> str:
 def cargar_prompt(ahora: datetime | None = None) -> str:
     ahora = ahora or datetime.now(config.ZONA_MX)
     valores = {
-        "fecha_hora": ahora.strftime("%A %d/%m/%Y %I:%M %p"),
+        "fecha_hora": fecha_hora_legible(ahora),
         "opciones_horario": calcular_horarios(ahora),
         **config.DATOS_PAGO,
     }

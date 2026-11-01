@@ -161,7 +161,7 @@ def conversaciones(monkeypatch):
 
 @pytest.mark.anyio
 async def test_estado_inicial_sin_fila(conversaciones):
-    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+    assert await store.obtener_estado("521") == store.ESTADO_INICIAL
 
 
 @pytest.mark.anyio
@@ -177,18 +177,23 @@ async def test_pausar_venta(conversaciones):
 async def test_modo_humano_y_reanudar(conversaciones):
     await store.pausar_venta("521", "crisis")
     await store.activar_humano("521", "comprobante")
-    assert await store.obtener_estado("521") == {"venta_pausada": True, "humano_activo": True}
+    assert await store.obtener_estado("521") == dict.fromkeys(store.ESTADO_INICIAL, True)
     assert conversaciones.filas["521"]["motivo_humano"] == "comprobante"
 
     assert await store.reanudar("521") is True
-    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+    # Vuelve a Sofía, pero se recuerda que Eduardo ya la atendió
+    assert await store.obtener_estado("521") == {
+        "venta_pausada": False,
+        "humano_activo": False,
+        "atendida_por_eduardo": True,
+    }
     assert conversaciones.filas["521"]["motivo_pausa"] == "crisis"  # se conserva el historial del motivo
 
 
 @pytest.mark.anyio
 async def test_estado_tolera_fallas_de_la_base(monkeypatch, caplog):
     monkeypatch.setattr(store, "_cliente", lambda: SupabaseConversaciones(error=RuntimeError("no existe la tabla")))
-    assert await store.obtener_estado("521") == {"venta_pausada": False, "humano_activo": False}
+    assert await store.obtener_estado("521") == store.ESTADO_INICIAL
     assert await store.pausar_venta("521", "crisis") is False  # no lanza
     assert await store.activar_humano("521", "comprobante") is False
     assert await store.reanudar("521") is False

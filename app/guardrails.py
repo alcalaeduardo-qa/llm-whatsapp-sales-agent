@@ -25,6 +25,9 @@ RESPUESTA_PAUSA = (
     "es gratuita y atiende las 24 horas, o a tu número local de emergencias."
 )
 
+# Prefijo con el que se guardan en el historial los mensajes que Eduardo escribe desde Telegram.
+MARCA_EDUARDO = "[Eduardo] "
+
 RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalmente a la brevedad."
 
 RESPUESTA_COMPROBANTE = "Gracias, recibí tu archivo. Eduardo lo revisa y te confirma personalmente a la brevedad."
@@ -120,6 +123,8 @@ def validar_salida(texto: str) -> list[str]:
     problemas += [nombre for nombre, patron in _SIGNOS if patron.search(sin_urls)]
     if _MARKDOWN.search(sin_urls):
         problemas.append("markdown o lista")
+    if MARCA_EDUARDO.strip().lower() in sin_urls.lower():
+        problemas.append("se hace pasar por Eduardo")
 
     normal = normalizar(sin_urls)
     palabras = sorted({m.group(0) for m in _PALABRAS_PROHIBIDAS.finditer(normal)})

@@ -5,7 +5,7 @@ import re
 
 import httpx
 
-from app import config, store, telegram, whatsapp
+from app import config, guardrails, store, telegram, whatsapp
 from app.text import normalizar_numero
 
 logger = logging.getLogger("sofia.comandos")
@@ -43,7 +43,8 @@ async def responder(telefono: str, texto: str) -> None:
             "Si pasaron más de 24 horas desde su último mensaje, WhatsApp solo permite plantillas aprobadas."
         )
         return
-    await store.guardar_respuesta(telefono, texto)
+    # Marcado para que Claude sepa que lo escribió Eduardo y no Sofía
+    await store.guardar_respuesta(telefono, guardrails.MARCA_EDUARDO + texto)
     await telegram.alertar(f"✅ Enviado a +{telefono}. Sofía sigue en silencio hasta /reanudar {telefono}")
 
 

@@ -17,7 +17,11 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-5-5")
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", "800"))
+# claude-haiku-5-5 razona antes de responder y ese razonamiento cuenta contra max_tokens;
+# con un límite bajo se corta antes de escribir el mensaje. El largo visible lo limita el validador.
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))
+# Profundidad del razonamiento (low, medium, high). "low" es lo recomendado para chat.
+SOFIA_EFFORT = os.getenv("SOFIA_EFFORT", "low")
 HISTORIAL_MAX = int(os.getenv("HISTORIAL_MAX", "20"))
 
 # Horario de atención (hora México). La última sesión inicia a HORA_FIN - 1.

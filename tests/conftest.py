@@ -29,6 +29,8 @@ def config_de_prueba(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "CRISIS_LLM", True)
     monkeypatch.setattr(config, "MAX_CARACTERES", 900)
     monkeypatch.setattr(config, "MAX_PARRAFOS", 4)
+    monkeypatch.setattr(config, "SOFIA_EFFORT", "low")
+    monkeypatch.setattr(config, "MAX_TOKENS", 16000)
     # Siempre la plantilla pública: los tests no dependen del prompt real (que no está en git)
     monkeypatch.setattr(prompt, "RUTA_PROMPT", tmp_path / "no-existe.md")
 

@@ -63,20 +63,25 @@ def _obtener_historial(telefono: str, limite: int) -> list[dict]:
     return preparar_historial(list(reversed(resultado.data)))
 
 
-ESTADO_INICIAL = {"venta_pausada": False, "humano_activo": False}
+# atendida_por_eduardo: la conversación pasó alguna vez por Eduardo (tiene motivo_humano).
+ESTADO_INICIAL = {"venta_pausada": False, "humano_activo": False, "atendida_por_eduardo": False}
 
 
 def _obtener_estado(telefono: str) -> dict:
     resultado = (
         _cliente()
         .table("conversaciones")
-        .select("venta_pausada, humano_activo")
+        .select("venta_pausada, humano_activo, motivo_humano")
         .eq("telefono", telefono)
         .limit(1)
         .execute()
     )
     fila = resultado.data[0] if resultado.data else {}
-    return {clave: bool(fila.get(clave, inicial)) for clave, inicial in ESTADO_INICIAL.items()}
+    return {
+        "venta_pausada": bool(fila.get("venta_pausada")),
+        "humano_activo": bool(fila.get("humano_activo")),
+        "atendida_por_eduardo": bool(fila.get("motivo_humano")),
+    }
 
 
 def _ahora() -> str:

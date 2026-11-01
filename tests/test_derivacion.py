@@ -205,7 +205,8 @@ def test_responder_contestando_a_la_alerta(entorno):
     enviado = json.loads(entorno["meta"].calls[0].request.content)
     assert enviado["text"]["body"] == "Hola, soy Eduardo. Sí, a las 5 PM"
     assert enviado["to"] == "524931234567"
-    assert entorno["store"].respuestas_a(TEL) == ["Hola, soy Eduardo. Sí, a las 5 PM"]  # queda en el historial
+    # Queda en el historial marcado como de Eduardo
+    assert entorno["store"].respuestas_a(TEL) == ["[Eduardo] Hola, soy Eduardo. Sí, a las 5 PM"]
     assert entorno["store"].humano == {TEL: "eduardo_responde"}
     assert _alertas(entorno["telegram"])[0].startswith(f"✅ Enviado a +{TEL}")
 
@@ -340,3 +341,30 @@ async def test_registrar_webhook(entorno):
     assert await telegram.registrar_webhook("https://x.ngrok.app/telegram/webhook") == {"ok": True, "result": True}
     enviado = json.loads(ruta.calls[0].request.content)
     assert enviado["secret_token"] == SECRETO_TG and enviado["allowed_updates"] == ["message"]
+
+
+# --- Conversación devuelta por Eduardo -------------------------------------------
+def test_reanudada_no_vuelve_a_derivar_por_el_historial(entorno):
+    """Regresión: tras /reanudar, Claude veía "quiero hablar con Eduardo" en el historial y volvía a derivar."""
+    entorno["claude"].respuestas = [[_texto("Gracias, Eduardo te escribirá.")[0], _derivar()]]
+    post_firmado(entorno["http"], payload(texto="Quiero hablar con Eduardo", wa_id="w1"))
+    _telegram(entorno, _update("Hola, soy Eduardo", citado={"message_id": 1, "text": f"💬 +{TEL}"}))
+    _telegram(entorno, _update(f"/reanudar {TEL}"))
+
+    entorno["claude"].respuestas = [_texto("Tengo hoy a las 5 PM o mañana a las 2 PM.")]
+    post_firmado(entorno["http"], payload(texto="¿Qué horarios tienes?", wa_id="w2"))
+
+    segunda = entorno["claude"].peticiones[1]
+    assert "CONVERSACIÓN DEVUELTA POR EDUARDO" in segunda["system"]
+    assert {"role": "assistant", "content": "[Eduardo] Hola, soy Eduardo"} in segunda["messages"]
+    assert entorno["store"].humano == {}  # Sofía sigue atendiendo
+    assert _enviados(entorno["meta"])[-1] == "Tengo hoy a las 5 PM o mañana a las 2 PM."
+
+
+def test_conversacion_nueva_no_lleva_nota_de_devuelta(entorno):
+    post_firmado(entorno["http"], payload(texto="Hola"))
+    assert "DEVUELTA POR EDUARDO" not in entorno["claude"].peticiones[0]["system"]
+
+
+def test_sofia_no_puede_hacerse_pasar_por_eduardo():
+    assert "se hace pasar por Eduardo" in guardrails.validar_salida("[Eduardo] Claro, te veo mañana")
