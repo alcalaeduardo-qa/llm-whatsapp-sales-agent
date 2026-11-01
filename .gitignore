@@ -5,3 +5,6 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Prompt real de Sofía (propiedad del negocio); en el repo va prompts/sofia.example.md
+prompts/sofia.md
