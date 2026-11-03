@@ -1,0 +1,83 @@
+# Lint, tests y evals deterministas en cada PR y en cada push a main.
+# Secretos del repositorio (Settings → Secrets and variables → Actions):
+#   ANTHROPIC_API_KEY  clave de Anthropic para los evals (cuestan ~0.11 USD por corrida)
+#   SOFIA_PROMPT       contenido de prompts/sofia.md; el prompt real nunca se sube al repo
+# Sin ANTHROPIC_API_KEY los evals se omiten con un aviso; los tests no necesitan secretos.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Lint y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Dependencias
+        run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Tests y cobertura (mínimo 80 %)
+        env:
+          DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+        run: pytest
+
+  evals:
+    name: Evals deterministas
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SOFIA_PROMPT: ${{ secrets.SOFIA_PROMPT }}
+      DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Dependencias
+        if: env.ANTHROPIC_API_KEY != ''
+        run: pip install -r requirements-dev.txt
+      - name: Prompt real desde el secreto
+        if: env.SOFIA_PROMPT != ''
+        run: printf '%s\n' "$SOFIA_PROMPT" > prompts/sofia.md
+      - name: Evals con el prompt real (bloquea el PR si pasa menos del 85 %)
+        if: env.ANTHROPIC_API_KEY != '' && env.SOFIA_PROMPT != ''
+        run: python -m evals.run --sin-juez --minimo 85
+      - name: Evals con la plantilla pública (solo informativo)
+        if: env.ANTHROPIC_API_KEY != '' && env.SOFIA_PROMPT == ''
+        run: |
+          echo "::warning::Sin el secreto SOFIA_PROMPT los evals usan prompts/sofia.example.md y no bloquean el PR"
+          python -m evals.run --sin-juez
+      - name: Sin clave de Anthropic
+        if: env.ANTHROPIC_API_KEY == ''
+        run: echo "::warning::Falta el secreto ANTHROPIC_API_KEY; se omiten los evals"
+      - name: Reporte
+        if: always() && env.ANTHROPIC_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-deterministas
+          # Solo el resumen: las transcripciones completas reflejan el prompt y no se publican
+          path: evals/RESULTS.md
+          if-no-files-found: ignore

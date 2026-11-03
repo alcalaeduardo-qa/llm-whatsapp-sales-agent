@@ -1,0 +1,55 @@
+# Evals completos con juez (Claude Opus 5.5). Cuestan ~2.5 USD por corrida, así que solo se lanzan a mano:
+# Actions → Evals con juez → Run workflow. Usa los mismos secretos que ci.yml.
+name: Evals con juez
+
+on:
+  workflow_dispatch:
+    inputs:
+      solo:
+        description: "Categoría, id o dataset (vacío = todo)"
+        required: false
+        default: ""
+      minimo:
+        description: "Porcentaje mínimo de casos que pasan"
+        required: false
+        default: "80"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Evals con juez
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SOFIA_PROMPT: ${{ secrets.SOFIA_PROMPT }}
+      DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+    steps:
+      - name: Secretos
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ] || [ -z "$SOFIA_PROMPT" ]; then
+            echo "::error::Faltan los secretos ANTHROPIC_API_KEY o SOFIA_PROMPT"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: printf '%s\n' "$SOFIA_PROMPT" > prompts/sofia.md
+      - name: Evals
+        env:
+          SOLO: ${{ inputs.solo }}
+          MINIMO: ${{ inputs.minimo }}
+        run: python -m evals.run ${SOLO:+--solo "$SOLO"} --minimo "$MINIMO"
+      - name: Reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-con-juez
+          path: evals/RESULTS.md
+          if-no-files-found: ignore

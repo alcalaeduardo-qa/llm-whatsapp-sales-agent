@@ -25,16 +25,16 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI listo en la rama `dia-9-ci`; falta Docker, Railway, métricas, retención |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **385 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **389 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`docs-readme`** (README bilingüe, desde `main` con los Días 1–8 integrados). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 9.
+- Rama actual: **`dia-9-ci`** (desde `main` con README y Días 1–8). Las ramas anteriores ya se borraron.
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -178,6 +178,11 @@ Pendiente del Día 7:
 1. ~~PR #9~~ fusionado (3 de noviembre). README bilingüe agregado (rama `docs-readme`).
 2. Hallazgos abiertos (ver `docs/FMEA.md`): hora equivalente mal calculada para otros países (prioridad 1: calcularla en código), "estás lista", enlace de pago antes de elegir horario, no aceptar un horario válido propuesto, guía de apego no ofrecida a alguien de EE. UU.
 3. Agregar casos de notas de voz al dataset.
+
+### Día 9 (en curso)
+- **CI** (`.github/workflows/ci.yml`): en cada PR y push a `main`, ruff + 389 tests (sin secretos) y evals sin juez (`--minimo 85`, ~0.11 USD). `evals-juez.yml`: corrida completa con juez solo a mano (Actions → Run workflow, ~2.5 USD).
+- **Secretos que Eduardo debe crear en GitHub** (Settings → Secrets and variables → Actions): `ANTHROPIC_API_KEY` y `SOFIA_PROMPT` (contenido completo de `prompts/sofia.md`). Sin ellos los evals se omiten o usan la plantilla pública con un aviso.
+- Falta: Dockerfile (Docker no está instalado en la PC de Eduardo; se puede construir en CI/Railway), deploy en Railway, subdominio de sanandoalmaa.com, tabla de métricas, retención de 90 días, comando BORRAR MIS DATOS, aviso de privacidad en el primer mensaje y hora equivalente calculada en código (prioridad 1 del FMEA).
 
 ### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:

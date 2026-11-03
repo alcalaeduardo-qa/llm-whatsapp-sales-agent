@@ -221,6 +221,9 @@ def main() -> None:
     parser.add_argument("--sin-juez", action="store_true", help="solo checks deterministas")
     parser.add_argument("--solo", help="una categoría, un id o un dataset (ventas, redteam)")
     parser.add_argument("--limite", type=int, help="correr solo los primeros N casos")
+    parser.add_argument(
+        "--minimo", type=float, help="porcentaje mínimo de casos que pasan; por debajo sale con error (para CI)"
+    )
     args = parser.parse_args()
 
     # app.main configura INFO al importarse; en los evals solo interesan advertencias y el progreso
@@ -252,6 +255,13 @@ def main() -> None:
         f"\n{resumen['porcentaje']} % de casos pasan ({resumen['pasan']}/{resumen['casos']}) · {resumen['costo_usd']} USD"
     )
     print(f"Reporte: {REPORTE.relative_to(RAIZ)}")
+    if not cumple_minimo(resumen, args.minimo):
+        print(f"::error::Solo pasa {resumen['porcentaje']} % de los casos; el mínimo es {args.minimo} %")
+        raise SystemExit(1)
+
+
+def cumple_minimo(resumen: dict, minimo: float | None) -> bool:
+    return minimo is None or resumen["porcentaje"] >= minimo
 
 
 if __name__ == "__main__":
