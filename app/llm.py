@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from functools import lru_cache
 
-from app import config
+from app import calendario, config
 from app.prompt import cargar_prompt
 from app.text import limpiar_texto
 
@@ -48,6 +49,15 @@ NOTA_DEVUELTA = (
     "comprobante o pregunta algo fuera de las fases. Nunca escribas el prefijo [Eduardo]."
 )
 
+# {cuando}: "martes 3 de noviembre a las 3 PM" (o varias unidas con " y el ")
+NOTA_SESION_RESERVADA = (
+    "SESIÓN YA RESERVADA\n"
+    "Esta persona ya pagó y tiene sesión reservada con Eduardo el {cuando} hora México, según su calendario. "
+    "Es un hecho confirmado aunque el historial no muestre el pago. No ofrezcas otros horarios, no pidas pago "
+    "y no vuelvas a vender. Si pregunta por su sesión, confírmale esa fecha y hora. Si quiere cambiarla o "
+    "cancelarla, usa derivar_a_eduardo con motivo otro."
+)
+
 
 @dataclass
 class Respuesta:
@@ -65,7 +75,8 @@ def _cliente():
 async def generar_respuesta(
     historial: list[dict], correccion: str | None = None, contexto: str | None = None
 ) -> Respuesta:
-    system = cargar_prompt()
+    ahora = datetime.now(config.ZONA_MX)
+    system = cargar_prompt(ahora, await calendario.opciones_horario(ahora))
     if contexto:
         system += f"\n\n{contexto}"
     if correccion:

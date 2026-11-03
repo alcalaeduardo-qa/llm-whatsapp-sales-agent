@@ -1,16 +1,32 @@
+import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from app import comandos, config, guardrails, llm, store, telegram, whatsapp
+from app import calendario, comandos, config, guardrails, llm, recordatorios, store, telegram, whatsapp
+from app.scheduling import dia_y_fecha
 from app.text import huella, normalizar_numero
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("sofia")
 
-app = FastAPI(title="Sofía · WhatsApp sales agent")
+
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI):
+    """Con el calendario configurado, revisa cada minuto si toca mandar recordatorios."""
+    tarea = asyncio.create_task(recordatorios.bucle()) if calendario.configurado() else None
+    if tarea is None:
+        logger.warning("iCloud sin configurar: no se enviarán recordatorios de sesión")
+    yield
+    if tarea:
+        tarea.cancel()
+
+
+app = FastAPI(title="Sofía · WhatsApp sales agent", lifespan=ciclo_de_vida)
 
 
 def _desc(texto: str) -> str:
@@ -93,6 +109,18 @@ async def atender_crisis(remitente: str, nueva: bool) -> None:
         await telegram.alertar(alerta)
 
 
+async def contexto_de(remitente: str, estado: dict) -> str | None:
+    """Hechos que el historial no muestra: que Eduardo ya la atendió y sus sesiones ya reservadas."""
+    notas = []
+    if estado["atendida_por_eduardo"]:
+        notas.append(llm.NOTA_DEVUELTA)
+    sesiones = await calendario.sesiones_de(remitente, datetime.now(config.ZONA_MX))
+    if sesiones:
+        cuando = " y el ".join(f"{dia_y_fecha(s.date())} a las {s.strftime('%I').lstrip('0')} PM" for s in sesiones)
+        notas.append(llm.NOTA_SESION_RESERVADA.format(cuando=cuando))
+    return "\n\n".join(notas) or None
+
+
 async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> None:
     try:
         es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
@@ -115,8 +143,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             await atender_crisis(remitente, nueva=True)
             return
 
-        contexto = llm.NOTA_DEVUELTA if estado["atendida_por_eduardo"] else None
-        respuesta = await generar_validada(historial, remitente, contexto)
+        respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado))
         logger.info("Sofía responde %s", _desc(respuesta.texto))
         try:
             await enviar(remitente, respuesta.texto)
@@ -154,6 +181,17 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
         logger.exception("Error procesando %s %s", tipo, mensaje["id"])
 
 
+async def avisar_fallos(fallos: list[dict]) -> None:
+    """Meta acepta un envío y minutos después puede marcarlo fallido; Eduardo debe enterarse."""
+    for fallo in fallos:
+        logger.warning("Meta no entregó un mensaje a %s (código %s)", fallo["destino"], fallo["codigo"])
+        if fallo["codigo"] == whatsapp.FUERA_DE_VENTANA:
+            motivo = "su último mensaje fue hace más de 24 horas y WhatsApp solo permite plantillas aprobadas"
+        else:
+            motivo = f"código {fallo['codigo']}: {fallo['detalle']}"
+        await telegram.alertar(f"⚠️ WhatsApp no entregó un mensaje a +{fallo['destino']}: {motivo}. Escríbele tú.")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -183,6 +221,11 @@ async def recibir(request: Request, tareas: BackgroundTasks):
         body = json.loads(cuerpo)
     except ValueError:
         raise HTTPException(status_code=400, detail="JSON inválido") from None
+
+    fallos = whatsapp.extraer_fallos(body)
+    if fallos:
+        tareas.add_task(avisar_fallos, fallos)
+        return {"status": "fallo_reportado"}
 
     mensaje = whatsapp.extraer_mensaje(body)
     if mensaje is None:

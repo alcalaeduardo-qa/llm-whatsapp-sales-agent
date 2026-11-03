@@ -38,3 +38,14 @@ alter table public.conversaciones enable row level security;
 alter table public.conversaciones add column if not exists humano_activo boolean not null default false;
 alter table public.conversaciones add column if not exists motivo_humano text;
 alter table public.conversaciones add column if not exists humano_desde  timestamptz;
+
+-- Día 5: recordatorios de sesión ya enviados. Se registran antes de enviar para que un
+-- reinicio o dos revisiones seguidas no repitan el WhatsApp.
+create table if not exists public.recordatorios (
+    evento_uid text        primary key,
+    telefono   text        not null,
+    inicio     timestamptz not null,
+    enviado_en timestamptz not null default now()
+);
+
+alter table public.recordatorios enable row level security;

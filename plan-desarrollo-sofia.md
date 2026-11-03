@@ -45,10 +45,12 @@
 - [x] Flag `humano_activo` por conversación: bot se silencia hasta `/reanudar` en Telegram.
 - [x] Imágenes (comprobantes) → derivación automática en vez de ignorar.
 
-## Día 5 — Agenda real
-- [ ] Google Calendar free/busy reemplaza `calcular_horarios` (mantener fallback). Horario 2–8 PM en config.
-- [ ] Tool `apartar_horario` → evento tentativo; `/confirmar <tel>` en Telegram lo confirma tras validar pago manual.
-- [ ] Recordatorios 10 min antes y a la hora (APScheduler o cron) — requiere plantilla aprobada si pasan >24h de la ventana de WhatsApp.
+## Día 5 — Agenda real (iCloud)
+Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones de 1 hora; nunca se aparta sin pago. Pago primero, Eduardo valida y ordena la reserva.
+- [x] Leer ocupado/libre de iCloud por CalDAV y ofrecer solo horarios libres (respaldo: `calcular_horarios`). Respeta eventos marcados como Libre.
+- [x] `/reservar <tel> <día/mes> <hora>` en Telegram (o contestando a la alerta): verifica que siga libre, crea el evento de 1 h y confirma a la persona por WhatsApp.
+- [x] Alertas en el calendario de Eduardo: 10 minutos antes y a la hora (VALARM en el evento).
+- [x] Recordatorio por WhatsApp a la persona 10 minutos antes (revisión cada minuto, registro en `recordatorios` para no repetir; plantilla aprobada si pasaron más de 24 h, si no aviso a Eduardo).
 
 ## Día 6 — Audio
 - [ ] Descargar media de Graph API → transcribir con Groq `whisper-large-v3-turbo`.

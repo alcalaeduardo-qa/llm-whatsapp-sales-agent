@@ -5,3 +5,4 @@ respx
 freezegun
 ruff
 pre-commit
+watchfiles

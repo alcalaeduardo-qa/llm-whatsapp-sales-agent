@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 
 from app import config
@@ -17,6 +18,9 @@ MESES = [
     "noviembre",
     "diciembre",
 ]
+
+
+SIN_HORARIOS = "ninguno disponible en los próximos días, Eduardo te propondrá un horario personalmente"
 
 
 def dia_y_fecha(fecha: date) -> str:
@@ -41,11 +45,14 @@ def calcular_horarios(
     hora_fin: int = config.HORA_FIN,
     margen_horas: int = config.MARGEN_HORAS,
     cantidad: int = 2,
+    ocupados: Sequence[tuple[datetime, datetime]] = (),
+    duracion_minutos: int = config.SESION_MINUTOS,
 ) -> str:
     """Primer horario libre de cada día, respetando el margen mínimo.
 
     Devuelve hasta `cantidad` opciones en días distintos, p. ej.
     "hoy viernes 30 de octubre a las 5 PM o mañana sábado 31 de octubre a las 2 PM".
+    Un horario que se cruza con algo de `ocupados` (calendario de Eduardo) se salta.
     """
     zona = ahora.tzinfo
     limite = ahora + timedelta(hours=margen_horas)
@@ -54,10 +61,14 @@ def calcular_horarios(
         fecha = (ahora + timedelta(days=dias_extra)).date()
         for hora in range(hora_inicio, hora_fin):
             inicio = datetime.combine(fecha, time(hora), tzinfo=zona)
-            if inicio >= limite:
+            fin = inicio + timedelta(minutes=duracion_minutos)
+            libre = all(not (inicio < o_fin and o_inicio < fin) for o_inicio, o_fin in ocupados)
+            if inicio >= limite and libre:
                 hora_texto = inicio.strftime("%I").lstrip("0")
                 opciones.append(f"{_etiqueta_dia(dias_extra, fecha)} a las {hora_texto} PM")
                 break
         if len(opciones) == cantidad:
             break
+    if not opciones:
+        return SIN_HORARIOS
     return " o ".join(opciones)

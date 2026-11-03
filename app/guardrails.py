@@ -32,6 +32,18 @@ RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalment
 
 RESPUESTA_COMPROBANTE = "Gracias, recibí tu archivo. Eduardo lo revisa y te confirma personalmente a la brevedad."
 
+# {cuando}: "lunes 2 de noviembre a las 2 PM"
+RESPUESTA_RESERVA = (
+    "Tu pago quedó confirmado y tu sesión con Eduardo está reservada para el {cuando} hora México.\n\n"
+    "Es una hora con Eduardo por escrito y audios en vivo, sin cámara. Si necesitas cambiarla, escríbeme por aquí."
+)
+
+# {minutos}: 10, {hora}: "2 PM"
+RESPUESTA_RECORDATORIO = (
+    "Hola, te recuerdo que tu sesión con Eduardo empieza en {minutos} minutos, a las {hora} hora México. "
+    "Busca un lugar tranquilo donde puedas escribir y mandar audios con calma."
+)
+
 RESPUESTA_RESPALDO = "Gracias por escribirme. Eduardo te escribirá personalmente a la brevedad para darte seguimiento."
 
 

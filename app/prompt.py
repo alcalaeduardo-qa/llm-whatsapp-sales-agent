@@ -34,11 +34,12 @@ def renderizar(plantilla: str, valores: dict) -> str:
     return _MARCADOR.sub(lambda m: str(valores[m.group(1)]), plantilla)
 
 
-def cargar_prompt(ahora: datetime | None = None) -> str:
+def cargar_prompt(ahora: datetime | None = None, opciones_horario: str | None = None) -> str:
+    """`opciones_horario` viene del calendario de Eduardo; sin él se calculan sin consultarlo."""
     ahora = ahora or datetime.now(config.ZONA_MX)
     valores = {
         "fecha_hora": fecha_hora_legible(ahora),
-        "opciones_horario": calcular_horarios(ahora),
+        "opciones_horario": opciones_horario or calcular_horarios(ahora),
         **config.DATOS_PAGO,
     }
     return renderizar(ruta_prompt().read_text(encoding="utf-8"), valores)

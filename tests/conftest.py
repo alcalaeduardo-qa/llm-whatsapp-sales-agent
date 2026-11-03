@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app import config, prompt
+from app import calendario, config, llm, prompt, store
 from tests.falsos import entorno  # noqa: F401  (fixture compartido)
 
 SECRETO = "secreto-de-prueba"
@@ -31,8 +31,20 @@ def config_de_prueba(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "MAX_PARRAFOS", 4)
     monkeypatch.setattr(config, "SOFIA_EFFORT", "low")
     monkeypatch.setattr(config, "MAX_TOKENS", 16000)
+    monkeypatch.setattr(config, "ICLOUD_USUARIO", "")  # nunca tocar el iCloud real desde los tests
+    monkeypatch.setattr(config, "ICLOUD_PASSWORD_APP", "")
     # Siempre la plantilla pública: los tests no dependen del prompt real (que no está en git)
     monkeypatch.setattr(prompt, "RUTA_PROMPT", tmp_path / "no-existe.md")
+    # Candado: ningún test usa Supabase, Claude ni iCloud reales (cada test que los necesite pone su doble)
+    for modulo, cliente in ((store, "_cliente"), (llm, "_cliente"), (calendario, "_calendario")):
+        monkeypatch.setattr(modulo, cliente, _servicio_real(f"{modulo.__name__}.{cliente}"))
+
+
+def _servicio_real(nombre: str):
+    def bloqueado():
+        raise RuntimeError(f"Un test intentó usar el servicio real ({nombre}); usa un doble")
+
+    return bloqueado
 
 
 def firmar(cuerpo: bytes) -> str:
