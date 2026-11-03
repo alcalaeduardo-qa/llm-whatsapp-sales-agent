@@ -28,7 +28,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **302 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **307 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
@@ -107,14 +107,14 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 
 ```powershell
 cd C:\Users\Admin\Desktop\claude\sofia
-.venv\Scripts\python.exe -m uvicorn app.main:app --port 80     # ngrok apunta al puerto 80
+.venv\Scripts\python.exe -m uvicorn app.main:app --port 80 --reload --reload-include .env   # ngrok → puerto 80; se reinicia solo al cambiar código o .env (solo en desarrollo)
 .venv\Scripts\python.exe -m pytest                             # tests + cobertura
 .venv\Scripts\python.exe -m app.telegram https://<url-ngrok>   # registrar webhook de Telegram (si cambia la URL)
 ```
 
 - ngrok: dominio fijo gratuito `https://spore-departure-chloride.ngrok-free.dev` → `localhost:80`. Inspector en `http://127.0.0.1:4040` (sirve para ver qué llegó y con qué código respondió).
 - Meta: webhook en `https://<ngrok>/webhook`. Número de **prueba** de Meta (+1 555-651-2097): solo puede escribir a números de la lista "Para" en *API Setup*. Token de **usuario del sistema `sofia-v2`, no caduca**, app `sofia-v2`.
-- Reiniciar uvicorn después de cambiar `.env`. El prompt se lee en cada mensaje (no requiere reinicio).
+- Con `--reload --reload-include .env` (requiere `watchfiles`, en `requirements-dev.txt`) uvicorn se reinicia solo al cambiar código o `.env`. El prompt se lee en cada mensaje. En producción se arranca sin `--reload`.
 
 ### Variables de `.env` (ver `.env.example`)
 Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `MAX_TOKENS=16000`, `SOFIA_EFFORT=low`, Supabase (`SUPABASE_URL`, `SUPABASE_KEY` = service_role), horario, datos de pago, guardrails, Telegram (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`) y, nuevo en el Día 5, `ICLOUD_USUARIO`, `ICLOUD_PASSWORD_APP` (contraseña de app de appleid.apple.com), `ICLOUD_CALENDARIO=Casa`, `SESION_MINUTOS=60`.
@@ -141,6 +141,7 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - Tras `/reanudar`, Claude volvía a derivar al leer "quiero hablar con Eduardo" en el historial → mensajes de Eduardo con prefijo `[Eduardo]` y nota `NOTA_DEVUELTA` en el prompt.
 - En Git Bash, los heredocs con `\n` dentro de scripts de Python se convirtieron en saltos reales: para editar código usar el editor, no `sed`/heredocs con escapes. Los archivos deben quedar con fin de línea LF.
 - **Ventana de 24 h de WhatsApp:** fuera de ella Meta **acepta** el texto libre (200) y segundos después manda un estado `failed` con código **131047** por el webhook. Por eso: antes de mandar avisos de reserva o recordatorios se revisa el último mensaje de la persona (`store.en_ventana_de_whatsapp`), y cualquier estado `failed` se le reporta a Eduardo por Telegram (`main.avisar_fallos`).
+- Claude solo ve el historial de mensajes: no sabía qué sesiones estaban reservadas y llegó a decirle a una persona con reserva que "su lugar no estaba apartado". Ahora `main.contexto_de` le pasa las sesiones próximas de esa persona leídas del calendario (`NOTA_SESION_RESERVADA`), junto con `NOTA_DEVUELTA` si Eduardo ya la atendió.
 - Los tests tienen un candado (`tests/conftest.py`): si un test intenta usar el Supabase, el Claude o el iCloud reales, falla. Cada función nueva de `store` debe tener su doble en `StoreFalso`.
 - Meta manda los móviles de México como `521…`; para enviar se usa `52…` (`normalizar_numero`). En comandos, `numero_meta` hace lo inverso.
 

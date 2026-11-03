@@ -49,6 +49,15 @@ NOTA_DEVUELTA = (
     "comprobante o pregunta algo fuera de las fases. Nunca escribas el prefijo [Eduardo]."
 )
 
+# {cuando}: "martes 3 de noviembre a las 3 PM" (o varias unidas con " y el ")
+NOTA_SESION_RESERVADA = (
+    "SESIÓN YA RESERVADA\n"
+    "Esta persona ya pagó y tiene sesión reservada con Eduardo el {cuando} hora México, según su calendario. "
+    "Es un hecho confirmado aunque el historial no muestre el pago. No ofrezcas otros horarios, no pidas pago "
+    "y no vuelvas a vender. Si pregunta por su sesión, confírmale esa fecha y hora. Si quiere cambiarla o "
+    "cancelarla, usa derivar_a_eduardo con motivo otro."
+)
+
 
 @dataclass
 class Respuesta:

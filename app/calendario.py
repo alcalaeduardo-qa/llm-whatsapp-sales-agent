@@ -23,6 +23,7 @@ URL_ICLOUD = "https://caldav.icloud.com"
 CACHE_SEGUNDOS = 120  # iCloud es lento; la disponibilidad no cambia cada segundo
 DIAS_A_CONSULTAR = 7
 ALERTAS_MINUTOS_ANTES = (10, 0)
+DIAS_SESIONES_RESERVADAS = 30
 _TITULO_SESION = re.compile(r"^Sesión \+(\d{10,15})$")
 
 Intervalo = tuple[datetime, datetime]
@@ -98,6 +99,18 @@ def _leer_sesiones(desde: datetime, hasta: datetime) -> list[tuple[str, datetime
 async def sesiones_entre(desde: datetime, hasta: datetime) -> list[tuple[str, datetime, str]]:
     """(uid, inicio, teléfono) de las sesiones creadas por /reservar (título "Sesión +teléfono")."""
     return await asyncio.to_thread(_leer_sesiones, desde, hasta)
+
+
+async def sesiones_de(telefono: str, ahora: datetime) -> list[datetime]:
+    """Inicios de las sesiones próximas ya reservadas para esta persona. [] si no hay o si iCloud falla."""
+    if not configurado():
+        return []
+    try:
+        sesiones = await sesiones_entre(ahora, ahora + timedelta(days=DIAS_SESIONES_RESERVADAS))
+    except Exception:
+        logger.exception("No se pudieron consultar las sesiones reservadas")
+        return []
+    return [inicio for _uid, inicio, tel in sesiones if tel == telefono and inicio > ahora]
 
 
 def invalidar_cache() -> None:

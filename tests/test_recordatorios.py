@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import calendario, config, guardrails, main, recordatorios, store
+from app.scheduling import dia_y_fecha
 from tests.falsos import _alertas, _enviados
 from tests.test_agenda import CalendarioFalso, evento
 
@@ -275,3 +276,63 @@ def test_fallo_sin_detalle_usa_el_titulo():
     estado = {"status": "failed", "errors": [{"code": 1, "title": "T"}]}
     body = {"entry": [{"changes": [{"value": {"statuses": [estado]}}]}]}
     assert whatsapp.extraer_fallos(body) == [{"destino": "?", "codigo": 1, "detalle": "T"}]
+
+
+# --- Sesiones ya reservadas en el contexto de Claude --------------------------------------------
+@pytest.fixture
+def icloud(cal, monkeypatch):
+    monkeypatch.setattr(config, "ICLOUD_USUARIO", "eduardo@icloud.com")
+    monkeypatch.setattr(config, "ICLOUD_PASSWORD_APP", "abcd-efgh-ijkl-mnop")
+    return cal
+
+
+@pytest.mark.anyio
+async def test_sesiones_de_filtra_por_persona_y_futuro(icloud):
+    icloud.eventos = [
+        sesion(AHORA + timedelta(days=1), uid="mia"),
+        sesion(AHORA + timedelta(days=2), telefono="573001234567", uid="otra"),
+        sesion(AHORA - timedelta(hours=1), uid="pasada"),
+    ]
+    assert await calendario.sesiones_de(TEL, AHORA) == [AHORA + timedelta(days=1)]
+
+
+@pytest.mark.anyio
+async def test_sesiones_de_sin_icloud_o_con_error(icloud, monkeypatch, caplog):
+    icloud.error = ConnectionError("iCloud no responde")
+    assert await calendario.sesiones_de(TEL, AHORA) == []
+    assert "No se pudieron consultar las sesiones reservadas" in caplog.text
+    monkeypatch.setattr(config, "ICLOUD_USUARIO", "")
+    assert await calendario.sesiones_de(TEL, AHORA) == []
+
+
+def test_con_sesion_reservada_claude_lo_sabe(entorno, icloud):
+    """Caso real: tras /reservar, Sofía le dijo a la persona que su lugar no estaba apartado."""
+    from tests.conftest import payload, post_firmado
+
+    manana = (datetime.now(MX) + timedelta(days=1)).replace(hour=15, minute=0, second=0, microsecond=0)
+    icloud.eventos = [sesion(manana)]
+    post_firmado(entorno["http"], payload(texto="Hola Sofía"))
+    system = entorno["claude"].peticiones[0]["system"]
+    assert "SESIÓN YA RESERVADA" in system
+    assert f"{dia_y_fecha(manana.date())} a las 3 PM" in system
+
+
+def test_sin_sesion_reservada_no_hay_nota(entorno, icloud):
+    from tests.conftest import payload, post_firmado
+
+    post_firmado(entorno["http"], payload(texto="Hola Sofía"))
+    assert "SESIÓN YA RESERVADA" not in entorno["claude"].peticiones[0]["system"]
+
+
+def test_notas_se_combinan(entorno, icloud):
+    from tests.conftest import payload, post_firmado
+
+    entorno["store"].motivos[TEL] = "eduardo_responde"
+    icloud.eventos = [
+        sesion(datetime.now(MX) + timedelta(days=2), uid="a"),
+        sesion(datetime.now(MX) + timedelta(days=3), uid="b"),
+    ]
+    post_firmado(entorno["http"], payload(texto="¿Cuándo es mi sesión?"))
+    system = entorno["claude"].peticiones[0]["system"]
+    assert "CONVERSACIÓN DEVUELTA POR EDUARDO" in system and "SESIÓN YA RESERVADA" in system
+    assert " y el " in system.split("SESIÓN YA RESERVADA")[1]
