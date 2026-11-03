@@ -24,7 +24,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
-| 7–8 | Evals + red-teaming | ✅ en la rama `dia-7-evals`: 64 casos, 89.1 % pasan (línea base 32.8 %) |
+| 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
@@ -34,7 +34,7 @@ Tests: **385 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-7-evals`** (desde `main` con el Día 6 integrado). Subida a GitHub con PR contra `main` (falta merge). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 9.
+- Rama actual: **`docs-readme`** (README bilingüe, desde `main` con los Días 1–8 integrados). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 9.
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -175,7 +175,7 @@ Hechos el 3 de noviembre con **DeepEval** (Opus 5.5 como juez) contra el prompt 
 Resultados: 32.8 % → 46.9 % → 57.8 % → **89.1 %** de casos pasan; red-team 94 %; clasificador 27/27 crisis reales y 60/60 casos sin riesgo. Gasto total en evals: unos 7.8 USD. Arreglos en Sofía que salieron de los evals: "juntos" → "en conjunto", clasificador RIESGO/NORMAL, derivación si Sofía la promete, largo como regla suave, límite de 1000 caracteres, segunda sesión con pago primero.
 
 Pendiente del Día 7:
-1. PR de `dia-7-evals` abierto contra `main` (falta merge).
+1. ~~PR #9~~ fusionado (3 de noviembre). README bilingüe agregado (rama `docs-readme`).
 2. Hallazgos abiertos (ver `docs/FMEA.md`): hora equivalente mal calculada para otros países (prioridad 1: calcularla en código), "estás lista", enlace de pago antes de elegir horario, no aceptar un horario válido propuesto, guía de apego no ofrecida a alguien de EE. UU.
 3. Agregar casos de notas de voz al dataset.
 
