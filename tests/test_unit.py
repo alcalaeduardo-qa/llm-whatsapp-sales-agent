@@ -242,6 +242,11 @@ def test_extraer_mensaje_documento_sin_leyenda():
     assert mensaje["media_id"] == "M2" and mensaje["caption"] is None
 
 
-def test_extraer_mensaje_audio_no_es_media_de_comprobante():
-    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "audio", "audio": {"id": "A1"}}))
+def test_extraer_mensaje_nota_de_voz():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "audio", "audio": {"id": "A1", "voice": True}}))
+    assert mensaje["type"] == "audio" and mensaje["media_id"] == "A1"
+
+
+def test_extraer_mensaje_sticker_no_trae_media():
+    mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "sticker", "sticker": {"id": "S1"}}))
     assert mensaje["media_id"] is None

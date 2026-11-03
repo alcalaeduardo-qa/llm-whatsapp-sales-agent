@@ -27,6 +27,10 @@ RESPUESTA_PAUSA = (
 
 # Prefijo con el que se guardan en el historial los mensajes que Eduardo escribe desde Telegram.
 MARCA_EDUARDO = "[Eduardo] "
+# Prefijo de las notas de voz transcritas (la transcripción automática puede tener errores).
+MARCA_AUDIO = "[nota de voz] "
+
+RESPUESTA_AUDIO_FALLIDO = "Recibí tu nota de voz, pero no logré escucharla bien. ¿Me lo puedes escribir por aquí?"
 
 RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalmente a la brevedad."
 
@@ -137,6 +141,8 @@ def validar_salida(texto: str) -> list[str]:
         problemas.append("markdown o lista")
     if MARCA_EDUARDO.strip().lower() in sin_urls.lower():
         problemas.append("se hace pasar por Eduardo")
+    if MARCA_AUDIO.strip().lower() in sin_urls.lower():
+        problemas.append("marca interna de nota de voz")
 
     normal = normalizar(sin_urls)
     palabras = sorted({m.group(0) for m in _PALABRAS_PROHIBIDAS.finditer(normal)})

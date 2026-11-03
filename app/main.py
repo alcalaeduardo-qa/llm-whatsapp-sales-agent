@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from app import calendario, comandos, config, guardrails, llm, recordatorios, store, telegram, whatsapp
+from app import calendario, comandos, config, guardrails, llm, recordatorios, store, telegram, transcripcion, whatsapp
 from app.scheduling import dia_y_fecha
 from app.text import huella, normalizar_numero
 
@@ -109,11 +109,14 @@ async def atender_crisis(remitente: str, nueva: bool) -> None:
         await telegram.alertar(alerta)
 
 
-async def contexto_de(remitente: str, estado: dict) -> str | None:
-    """Hechos que el historial no muestra: que Eduardo ya la atendió y sus sesiones ya reservadas."""
+async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) -> str | None:
+    """Hechos que el historial no muestra: que Eduardo ya la atendió, sus sesiones ya reservadas
+    y que hay notas de voz transcritas."""
     notas = []
     if estado["atendida_por_eduardo"]:
         notas.append(llm.NOTA_DEVUELTA)
+    if any(m["role"] == "user" and m["content"].startswith(guardrails.MARCA_AUDIO) for m in historial):
+        notas.append(llm.NOTA_AUDIO)
     sesiones = await calendario.sesiones_de(remitente, datetime.now(config.ZONA_MX))
     if sesiones:
         cuando = " y el ".join(f"{dia_y_fecha(s.date())} a las {s.strftime('%I').lstrip('0')} PM" for s in sesiones)
@@ -143,7 +146,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             await atender_crisis(remitente, nueva=True)
             return
 
-        respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado))
+        respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado, historial))
         logger.info("Sofía responde %s", _desc(respuesta.texto))
         try:
             await enviar(remitente, respuesta.texto)
@@ -152,6 +155,35 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
                 await derivar(remitente, respuesta.derivacion["motivo"], respuesta.derivacion["resumen"], texto)
     except Exception:
         logger.exception("Error procesando mensaje %s", wa_message_id)
+
+
+async def procesar_audio(remitente: str, mensaje: dict) -> None:
+    """Nota de voz: se transcribe y sigue el mismo camino que un texto (crisis, modo humano, venta).
+    Si no se puede transcribir, se le pide que lo escriba."""
+    try:
+        archivo, mime = await whatsapp.descargar_media(mensaje["media_id"])
+        texto = await transcripcion.transcribir(archivo, mime)
+    except Exception:
+        logger.exception("No se pudo transcribir la nota de voz %s", mensaje["id"])
+        await audio_sin_transcribir(remitente, mensaje["id"])
+        return
+    await procesar_mensaje(remitente, guardrails.MARCA_AUDIO + texto, mensaje["id"])
+
+
+async def audio_sin_transcribir(remitente: str, wa_message_id: str) -> None:
+    try:
+        if not await store.registrar_entrante(remitente, "[nota de voz sin transcribir]", wa_message_id):
+            return
+        estado = await store.obtener_estado(remitente)
+        if estado["humano_activo"]:
+            await telegram.alertar(
+                f"🎤 +{remitente} mandó una nota de voz que no pude transcribir. Pídele que lo escriba.\n\n"
+                f"{_pie(remitente)}"
+            )
+            return
+        await enviar(remitente, guardrails.RESPUESTA_AUDIO_FALLIDO)
+    except Exception:
+        logger.exception("Error avisando de la nota de voz sin transcribir %s", wa_message_id)
 
 
 async def procesar_media(remitente: str, mensaje: dict) -> None:
@@ -235,6 +267,11 @@ async def recibir(request: Request, tareas: BackgroundTasks):
     if mensaje["type"] in whatsapp.TIPOS_MEDIA and mensaje["media_id"]:
         logger.info("Archivo entrante %s (%s)", mensaje["id"], mensaje["type"])
         tareas.add_task(procesar_media, mensaje["from"], mensaje)
+        return {"status": "recibido"}
+
+    if mensaje["type"] == whatsapp.AUDIO and mensaje["media_id"]:
+        logger.info("Nota de voz entrante %s", mensaje["id"])
+        tareas.add_task(procesar_audio, mensaje["from"], mensaje)
         return {"status": "recibido"}
 
     if mensaje["type"] != "text" or not mensaje["text"]:

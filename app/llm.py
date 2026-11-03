@@ -49,6 +49,13 @@ NOTA_DEVUELTA = (
     "comprobante o pregunta algo fuera de las fases. Nunca escribas el prefijo [Eduardo]."
 )
 
+NOTA_AUDIO = (
+    "NOTAS DE VOZ\n"
+    "Los mensajes que empiezan con [nota de voz] son transcripciones automáticas de audios de la persona. "
+    "Pueden traer palabras mal entendidas: interprétalas por el contexto y, si algo importante no se entiende, "
+    "pregúntalo. Nunca escribas la marca [nota de voz]."
+)
+
 # {cuando}: "martes 3 de noviembre a las 3 PM" (o varias unidas con " y el ")
 NOTA_SESION_RESERVADA = (
     "SESIÓN YA RESERVADA\n"
