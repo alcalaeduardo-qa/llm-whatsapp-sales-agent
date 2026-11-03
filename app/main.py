@@ -45,11 +45,19 @@ async def generar_validada(historial: list[dict], remitente: str, contexto: str 
     for intento in (1, 2):
         respuesta = await llm.generar_respuesta(historial, correccion, contexto)
         problemas = guardrails.validar_salida(respuesta.texto)
+        if not respuesta.derivacion and not problemas and guardrails.promete_derivar(respuesta.texto):
+            # Le dijo que Eduardo le escribirá pero no usó la herramienta: sin esto la alerta nunca llega
+            respuesta.derivacion = {"motivo": "otro", "resumen": "Sofía le dijo que Eduardo le escribiría."}
         if respuesta.derivacion:
             if problemas:
                 respuesta.texto = guardrails.RESPUESTA_DERIVACION
             return respuesta
         if not problemas:
+            return respuesta
+        if intento == 2 and all(guardrails.es_problema_de_largo(p) for p in problemas):
+            # El largo es una regla de estilo: los evals mostraron respuestas de propuesta un poco largas que
+            # terminaban en el respaldo y derivaban sin necesidad. Mejor un mensaje largo que dejar esperando.
+            logger.warning("Se envía pese a %s (solo largo)", problemas)
             return respuesta
         correccion = ", ".join(problemas)
         logger.warning("Intento %s descartado por %s", intento, problemas)

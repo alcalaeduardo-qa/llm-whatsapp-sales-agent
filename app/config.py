@@ -49,7 +49,7 @@ WHATSAPP_PLANTILLA_IDIOMA = os.getenv("WHATSAPP_PLANTILLA_IDIOMA", "es_MX")
 # Guardrails
 CRISIS_LLM = os.getenv("CRISIS_LLM", "true").lower() == "true"
 CLAUDE_MODEL_CLASIFICADOR = os.getenv("CLAUDE_MODEL_CLASIFICADOR", CLAUDE_MODEL)
-MAX_CARACTERES = int(os.getenv("MAX_CARACTERES", "900"))
+MAX_CARACTERES = int(os.getenv("MAX_CARACTERES", "1000"))
 MAX_PARRAFOS = int(os.getenv("MAX_PARRAFOS", "4"))
 
 # Alertas a Eduardo por Telegram

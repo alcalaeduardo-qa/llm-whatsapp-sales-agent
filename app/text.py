@@ -15,6 +15,10 @@ def limpiar_texto(texto: str) -> str:
     texto = texto.replace("…", ".").replace("...", ".")
     texto = re.sub(r"\s[—–-]\s", ", ", texto)
     texto = texto.replace(": ", ", ").replace("; ", ", ")
+    # "juntos" asume el género. Claude lo repite aun corregido y rechazarlo terminaba en el respaldo,
+    # así que se reemplaza por la frase neutra que pide el prompt.
+    texto = re.sub(r"\b(juntos|juntas)\b", "en conjunto", texto)
+    texto = re.sub(r"\b(Juntos|Juntas)\b", "En conjunto", texto)
     return texto.strip()
 
 

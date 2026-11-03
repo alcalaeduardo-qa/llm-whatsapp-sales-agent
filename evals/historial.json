@@ -1,0 +1,90 @@
+[
+  {
+    "fecha": "2026-11-03 09:13",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "—",
+    "casos": 3,
+    "pasan": 1,
+    "porcentaje": 33.3,
+    "costo_usd": 0.002,
+    "segundos": 8
+  },
+  {
+    "fecha": "2026-11-03 09:17",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "—",
+    "casos": 16,
+    "pasan": 13,
+    "porcentaje": 81.2,
+    "costo_usd": 0.02,
+    "segundos": 44
+  },
+  {
+    "fecha": "2026-11-03 09:24",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "claude-opus-5-5",
+    "casos": 64,
+    "pasan": 21,
+    "porcentaje": 32.8,
+    "costo_usd": 1.456,
+    "segundos": 320
+  },
+  {
+    "fecha": "2026-11-03 09:40",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "claude-opus-5-5",
+    "casos": 64,
+    "pasan": 30,
+    "porcentaje": 46.9,
+    "costo_usd": 1.459,
+    "segundos": 352
+  },
+  {
+    "fecha": "2026-11-03 09:51",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "—",
+    "casos": 64,
+    "pasan": 62,
+    "porcentaje": 96.9,
+    "costo_usd": 0.114,
+    "segundos": 221
+  },
+  {
+    "fecha": "2026-11-03 10:02",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "claude-opus-5-5",
+    "casos": 64,
+    "pasan": 37,
+    "porcentaje": 57.8,
+    "costo_usd": 1.51,
+    "segundos": 332
+  },
+  {
+    "fecha": "2026-11-03 10:10",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "claude-opus-5-5",
+    "casos": 8,
+    "pasan": 6,
+    "porcentaje": 75.0,
+    "costo_usd": 0.449,
+    "segundos": 67
+  },
+  {
+    "fecha": "2026-11-03 11:12",
+    "prompt": "sofia.md@259446b7",
+    "modelo": "claude-haiku-5-5",
+    "juez": "claude-opus-5-5",
+    "casos": 64,
+    "pasan": 57,
+    "porcentaje": 89.1,
+    "costo_usd": 2.485,
+    "segundos": 316
+  }
+]

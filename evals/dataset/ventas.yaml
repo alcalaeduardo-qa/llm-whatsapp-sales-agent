@@ -1,0 +1,339 @@
+# Conversaciones de venta por fase y país. Los mensajes son de la persona; las respuestas las genera
+# Sofía en vivo con el flujo real (crisis → Claude → validador). `espera` son checks deterministas
+# (ver evals/metricas.py) y `fase_esperada` la usa el juez LLM.
+
+- id: filtro-mx-1
+  categoria: filtro
+  pais: MX
+  fase_esperada: Fase 1. Se presenta como Sofía, asistente de Eduardo, aclara que son sesiones privadas de pago y pregunta de qué país escribe, sin pedir la historia todavía.
+  turnos: ["Hola, vi su página"]
+  espera: [presentacion, pregunta_pais, no_datos_pago, no_deriva]
+
+- id: filtro-mx-2
+  categoria: filtro
+  pais: MX
+  fase_esperada: Fase 1. Se presenta como Sofía, aclara que son sesiones de pago y pregunta el país antes de que cuente su historia.
+  turnos: ["Buenas tardes, quiero información de las terapias"]
+  espera: [presentacion, pregunta_pais, no_datos_pago, no_deriva]
+
+- id: filtro-mx-3
+  categoria: filtro
+  pais: MX
+  fase_esperada: Fase 1. Aunque la persona empiece contando su problema, Sofía se presenta, aclara que son sesiones de pago y pregunta el país.
+  turnos: ["Hola, mi novio me dejó y no puedo dejar de pensar en él, necesito ayuda"]
+  espera: [presentacion, pregunta_pais, no_datos_pago, no_deriva]
+
+- id: filtro-ve-1
+  categoria: filtro
+  pais: VE
+  fase_esperada: Fase 1. Ya dio su país (Venezuela), así que Sofía pregunta si puede pagar con tarjeta de débito o crédito.
+  turnos: ["Hola", "Te escribo desde Venezuela"]
+  espera: [presentacion, pide_tarjeta, no_datos_pago, no_deriva]
+
+- id: filtro-co-1
+  categoria: filtro
+  pais: CO
+  fase_esperada: Fase 1. Es de Colombia, Sofía pregunta si puede pagar con tarjeta de débito o crédito.
+  turnos: ["Buenas", "Soy de Colombia, de Medellín"]
+  espera: [presentacion, pide_tarjeta, no_datos_pago, no_deriva]
+
+- id: filtro-ve-2
+  categoria: filtro
+  pais: VE
+  fase_esperada: Fase 1. Es de Venezuela y no puede pagar con tarjeta, así que Sofía cierra con amabilidad y sin vender.
+  turnos: ["Hola", "De Venezuela", "No tengo tarjeta, aquí todo es en efectivo o pago móvil"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: filtro-otro-1
+  categoria: filtro
+  pais: ES
+  fase_esperada: Fase 1 a 2. Es de España; Sofía avanza invitando a contar su situación, sin pedir tarjeta (eso solo aplica a Venezuela y Colombia).
+  turnos: ["Hola Sofía", "Desde España"]
+  espera: [presentacion, no_datos_pago, no_deriva]
+
+- id: filtro-otro-2
+  categoria: filtro
+  pais: US
+  fase_esperada: Fase 1. Escribe en español desde Estados Unidos; Sofía se presenta, aclara que son sesiones de pago y pregunta el país o avanza si ya lo dijo.
+  turnos: ["Hi, hablo español, estoy en Texas"]
+  espera: [presentacion, no_datos_pago, no_deriva]
+
+- id: patron-mx-1
+  categoria: patron
+  pais: MX
+  fase_esperada: Fase 2. Detecta el tema (pareja) y hace una o dos preguntas espejo con sus palabras para que vea que es un patrón que se repite. Todavía no da precio ni datos de pago.
+  turnos: ["Hola", "De México", "Siempre termino con hombres que no me valoran, ya van tres relaciones así"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-mx-2
+  categoria: patron
+  pais: MX
+  fase_esperada: Fase 2. Tema ansiedad; Sofía valida brevemente y confronta con una pregunta espejo sobre cuántas veces le ha pasado.
+  turnos: ["Hola buenas", "Soy de Guadalajara", "Tengo mucha ansiedad, me despierto en la madrugada con el corazón acelerado"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-mx-3
+  categoria: patron
+  pais: MX
+  fase_esperada: Fase 2. Tema familia; pregunta espejo con sus propias palabras, sin juzgar ni etiquetar.
+  turnos: ["Hola", "México", "Mi mamá siempre me critica y yo termino haciendo todo para que esté contenta"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-co-1
+  categoria: patron
+  pais: CO
+  fase_esperada: Fase 2. Ya confirmó que puede pagar con tarjeta; tema autoestima, pregunta espejo sobre el patrón.
+  turnos: ["Hola", "Colombia", "Sí, tengo tarjeta de crédito", "Siento que nunca soy suficiente, en el trabajo y en todo"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-ve-1
+  categoria: patron
+  pais: VE
+  fase_esperada: Fase 2. Tiene tarjeta; tema duelo, valida su dolor y pregunta si es algo que ya vivió antes.
+  turnos: ["Buenas noches", "Venezuela", "Sí tengo tarjeta de débito internacional", "Perdí a mi papá hace un año y no levanto cabeza"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-co-2
+  categoria: patron
+  pais: CO
+  fase_esperada: Fase 2. Tema pareja con celos; pregunta espejo usando sus palabras.
+  turnos: ["Hola", "De Bogotá", "Sí, pago con tarjeta", "Soy muy celoso, reviso el celular de mi pareja todo el tiempo"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-otro-1
+  categoria: patron
+  pais: AR
+  fase_esperada: Fase 2. Es de Argentina; tema apego ansioso, pregunta espejo sobre el patrón.
+  turnos: ["Hola", "Argentina", "Cuando alguien me gusta me obsesiono y termino espantándolo"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: patron-otro-2
+  categoria: patron
+  pais: CL
+  fase_esperada: Fase 2. Es de Chile; tema trabajo y autoexigencia, pregunta espejo.
+  turnos: ["Hola Sofía", "De Chile", "No puedo descansar, si no estoy produciendo me siento culpable"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: propuesta-mx-1
+  categoria: propuesta
+  pais: MX
+  fase_esperada: Fase 3. Acepta el patrón; Sofía explica que desahogarse alivia pero no toca la raíz, describe la sesión (una hora con Eduardo por escrito y audios en vivo, sin cámara), da el precio de 300 pesos y ofrece las dos opciones de horario.
+  turnos: ["Hola", "México", "Siempre me fijo en personas que no están disponibles", "Sí, siempre es lo mismo, ¿cómo funciona la sesión?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-mx-2
+  categoria: propuesta
+  pais: MX
+  fase_esperada: Fase 3. Pregunta cómo funciona; explica formato, da precio 300 pesos y ofrece horarios. No promete resultados que dependan de otra persona.
+  turnos: ["Hola", "Soy de Puebla", "Tengo ansiedad desde hace años", "La verdad sí, siempre vuelve. ¿Y qué hacen en las sesiones?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-mx-3
+  categoria: propuesta
+  pais: MX
+  fase_esperada: Fase 3. Pregunta directamente el precio después de contar su situación; Sofía da 300 pesos y ofrece horarios.
+  turnos: ["Hola", "CDMX", "Mi ex me engañó y no lo supero", "¿Cuánto cuesta la sesión?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-co-1
+  categoria: propuesta
+  pais: CO
+  fase_esperada: Fase 3. Fuera de México; da el precio de 300 pesos mexicanos sin convertir a otra moneda (la página de pago calcula el monto) y ofrece horarios con su hora equivalente.
+  turnos: ["Hola", "Colombia", "Sí tengo tarjeta", "Me cuesta poner límites, siempre digo que sí a todo", "Sí, me pasa siempre. ¿Cuánto cuesta?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-ve-1
+  categoria: propuesta
+  pais: VE
+  fase_esperada: Fase 3. Fuera de México; precio en pesos mexicanos sin convertir y explicación de que la página cobra en su moneda.
+  turnos: ["Hola", "Venezuela", "Sí, tarjeta de crédito", "Mi pareja me grita y yo me quedo callada", "Sí, con mi papá era igual. ¿Cómo es la sesión?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-otro-1
+  categoria: propuesta
+  pais: US
+  fase_esperada: Fase 3. Desde Estados Unidos; precio de 300 pesos mexicanos sin convertir a dólares, formato de la sesión y horarios con hora equivalente.
+  turnos: ["Hola", "Vivo en Chicago", "Me siento solo aunque tenga gente alrededor", "Sí, desde siempre. ¿Cuánto es?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-otro-2
+  categoria: propuesta
+  pais: ES
+  fase_esperada: Fase 3. Desde España; precio sin convertir a euros y oferta de horarios.
+  turnos: ["Hola", "España", "No soporto estar sin pareja", "Sí, siempre salto de una relación a otra. ¿Cómo funciona?"]
+  espera: [precio, no_datos_pago, no_deriva]
+
+- id: propuesta-mx-4
+  categoria: propuesta
+  pais: MX
+  fase_esperada: Fase 3. Pregunta si la sesión es por videollamada; Sofía aclara que es por escrito y audios en vivo, sin cámara, y da precio.
+  turnos: ["Hola", "México", "Tengo mucha inseguridad con mi cuerpo", "Sí, desde la secundaria. ¿Es por videollamada?"]
+  espera: [no_datos_pago, no_deriva]
+
+- id: cierre-mx-1
+  categoria: cierre
+  pais: MX
+  fase_esperada: Fase 4. Eligió horario; Sofía entrega los datos de transferencia (banco, CLABE, titular) y termina pidiendo el comprobante para apartar su lugar.
+  turnos: ["Hola", "México", "Siempre termino con personas que no me valoran", "Sí, siempre igual, ¿cuánto cuesta?", "Me queda bien la primera opción que me diste"]
+  espera: [datos_pago_mx, clabe_intacta, no_deriva]
+
+- id: cierre-mx-2
+  categoria: cierre
+  pais: MX
+  fase_esperada: Fase 4. Elige la segunda opción de horario; datos de transferencia y petición de comprobante.
+  turnos: ["Hola", "Monterrey", "Tengo ansiedad y no duermo", "Sí, me pasa desde hace años. ¿Cuánto cuesta?", "La segunda opción está bien"]
+  espera: [datos_pago_mx, clabe_intacta, no_deriva]
+
+- id: cierre-mx-3
+  categoria: cierre
+  pais: MX
+  fase_esperada: Fase 4. Pregunta cómo pagar; Sofía da los datos de transferencia y pide el comprobante.
+  turnos: ["Hola", "México", "Mi pareja me ignora", "Sí, siempre busco gente así. ¿Cómo agendo?", "Va, la primera. ¿Cómo te pago?"]
+  espera: [datos_pago_mx, clabe_intacta, no_deriva]
+
+- id: cierre-co-1
+  categoria: cierre
+  pais: CO
+  fase_esperada: Fase 4. Fuera de México; Sofía da el enlace de pago con tarjeta (no la CLABE) y pide el comprobante.
+  turnos: ["Hola", "Colombia", "Sí, tengo tarjeta", "Me siento atrapada en mi matrimonio", "Sí, me pasa siempre. ¿Cuánto cuesta?", "Quiero la primera opción"]
+  espera: [link_stripe, no_clabe, no_deriva]
+
+- id: cierre-ve-1
+  categoria: cierre
+  pais: VE
+  fase_esperada: Fase 4. Fuera de México; enlace de pago con tarjeta y petición de comprobante.
+  turnos: ["Hola", "Venezuela", "Sí, débito internacional", "No logro superar a mi ex", "Sí, siempre igual. ¿Cuánto es?", "La segunda opción por favor"]
+  espera: [link_stripe, no_clabe, no_deriva]
+
+- id: cierre-otro-1
+  categoria: cierre
+  pais: US
+  fase_esperada: Fase 4. Desde Estados Unidos; enlace de pago con tarjeta, hora equivalente y petición de comprobante.
+  turnos: ["Hola", "Estados Unidos, Houston", "Me da pánico hablar en público y mi trabajo lo exige", "Sí, me pasa desde niño. ¿Cuánto cuesta?", "La primera opción"]
+  espera: [link_stripe, no_clabe, no_deriva]
+
+- id: cierre-otro-2
+  categoria: cierre
+  pais: ES
+  fase_esperada: Fase 4. Desde España; enlace de pago con tarjeta y comprobante.
+  turnos: ["Hola", "España", "Siempre me siento culpable de todo", "Sí, desde siempre. ¿Cómo funciona y cuánto es?", "La segunda me va bien"]
+  espera: [link_stripe, no_clabe, no_deriva]
+
+- id: cierre-mx-4
+  categoria: cierre
+  pais: MX
+  fase_esperada: Fase 4. Propone un horario válido (5 PM de un día con disponibilidad) y Sofía puede aceptarlo si cumple las reglas, dando datos de pago.
+  turnos: ["Hola", "México", "Mi familia me controla mucho", "Sí, desde siempre. ¿Cuánto cuesta?", "¿Puede ser pasado mañana a las 5 de la tarde?"]
+  espera: [no_deriva]
+
+- id: objecion-mx-1
+  categoria: objecion
+  pais: MX
+  fase_esperada: Fase 5. Objeción de precio con tema de pareja; Sofía no baja el precio ni se justifica y ofrece la Guía Práctica de apego ansioso (136 pesos u 8 USD) como primer paso.
+  turnos: ["Hola", "México", "Siempre me aferro a parejas que me lastiman", "Sí, siempre igual. ¿Cuánto cuesta?", "Uy no, ahorita no tengo dinero"]
+  espera: [guia, no_descuento, no_deriva]
+
+- id: objecion-mx-2
+  categoria: objecion
+  pais: MX
+  fase_esperada: Fase 5. Pide descuento con tema de apego; Sofía no baja el precio y ofrece la guía.
+  turnos: ["Hola", "México", "Me da miedo que me abandonen", "Sí, desde chica. ¿Cuánto es?", "¿No me lo puedes dejar más barato?"]
+  espera: [guia, no_descuento, no_deriva]
+
+- id: objecion-mx-3
+  categoria: objecion
+  pais: MX
+  fase_esperada: Fase 5. Objeción de precio con tema que no es pareja (trabajo); Sofía cierra con amabilidad sin ofrecer la guía ni bajar el precio, dejando la puerta abierta.
+  turnos: ["Hola", "México", "Odio mi trabajo pero no me animo a renunciar", "Sí, siempre me quedo donde no estoy bien. ¿Cuánto cuesta?", "Está caro, lo voy a pensar"]
+  espera: [no_descuento, no_deriva]
+
+- id: objecion-co-1
+  categoria: objecion
+  pais: CO
+  fase_esperada: Fase 5. Fuera de México, objeción de precio con tema de pareja; no baja el precio y ofrece la guía (136 pesos u 8 USD).
+  turnos: ["Hola", "Colombia", "Sí tengo tarjeta", "Siempre persigo a quien no me quiere", "Sí, siempre. ¿Cuánto cuesta?", "No me alcanza este mes"]
+  espera: [guia, no_descuento, no_deriva]
+
+- id: objecion-ve-1
+  categoria: objecion
+  pais: VE
+  fase_esperada: Fase 5. Objeción de precio con tema duelo (no pareja); cierra con amabilidad sin descuento.
+  turnos: ["Hola", "Venezuela", "Sí, tarjeta", "Mi mamá murió y me siento perdida", "Sí, es mucho dolor. ¿Cuánto cuesta?", "No puedo pagar eso ahora"]
+  espera: [no_descuento, no_deriva]
+
+- id: objecion-otro-1
+  categoria: objecion
+  pais: US
+  fase_esperada: Fase 5. Pide precio en dólares y descuento; Sofía no convierte ni baja el precio, y si el tema es pareja ofrece la guía.
+  turnos: ["Hola", "Estados Unidos", "Mi esposo es frío conmigo y yo ruego por atención", "Sí, siempre igual. ¿Cuánto en dólares? ¿Hay descuento?"]
+  espera: [no_descuento, no_deriva]
+
+- id: objecion-otro-2
+  categoria: objecion
+  pais: ES
+  fase_esperada: Fase 5. Dice que primero quiere probar gratis; Sofía no regala sesión ni baja el precio.
+  turnos: ["Hola", "España", "Tengo dependencia emocional", "Sí, siempre. ¿Cuánto cuesta?", "¿La primera sesión es gratis para probar?"]
+  espera: [no_descuento, no_deriva]
+
+- id: objecion-mx-4
+  categoria: objecion
+  pais: MX
+  fase_esperada: Fase 5. Duda porque ya fue a terapia y no le funcionó; Sofía no se justifica de más ni usa las palabras prohibidas, y mantiene el siguiente paso claro.
+  turnos: ["Hola", "México", "Tengo ansiedad", "Sí, siempre vuelve. ¿Cuánto?", "Ya fui con psicólogos y no me sirvió, ¿por qué esto sería diferente?"]
+  espera: [no_descuento, no_deriva]
+
+- id: derivacion-mx-1
+  categoria: derivacion
+  pais: MX
+  fase_esperada: Derivación. Pide hablar con Eduardo; Sofía usa derivar_a_eduardo y responde que Eduardo le escribirá personalmente.
+  turnos: ["Hola", "Quiero hablar directamente con Eduardo, no con un bot"]
+  espera: [deriva]
+
+- id: derivacion-mx-2
+  categoria: derivacion
+  pais: MX
+  fase_esperada: Derivación. Dice que ya pagó; Sofía deriva para que Eduardo revise el comprobante.
+  turnos: ["Hola", "Ya hice la transferencia de los 300 pesos, ¿ahora qué sigue?"]
+  espera: [deriva]
+
+- id: derivacion-mx-3
+  categoria: derivacion
+  pais: MX
+  fase_esperada: Derivación. Pregunta algo fuera de las fases (factura); Sofía deriva a Eduardo.
+  turnos: ["Hola", "México", "¿Me pueden dar factura de la sesión?"]
+  espera: [deriva]
+
+- id: derivacion-co-1
+  categoria: derivacion
+  pais: CO
+  fase_esperada: Derivación. Pregunta si Eduardo da talleres para empresas (fuera de las fases); deriva.
+  turnos: ["Hola", "Colombia", "¿Eduardo da talleres para empresas? Busco algo para mi equipo de trabajo"]
+  espera: [deriva]
+
+- id: derivacion-ve-1
+  categoria: derivacion
+  pais: VE
+  fase_esperada: Derivación. Ya pagó con tarjeta y lo dice; deriva.
+  turnos: ["Hola", "Ya pagué con tarjeta en la página que me pasaste, te aviso"]
+  espera: [deriva]
+
+- id: derivacion-otro-1
+  categoria: derivacion
+  pais: US
+  fase_esperada: Derivación. Quiere sesiones para su hijo menor de edad (fuera de las fases); deriva.
+  turnos: ["Hola", "Estados Unidos", "¿Eduardo atiende a adolescentes? Es para mi hijo de 15 años"]
+  espera: [deriva]
+
+- id: derivacion-otro-2
+  categoria: derivacion
+  pais: ES
+  fase_esperada: Derivación. Pide hablar con Eduardo después de conocer el precio; deriva.
+  turnos: ["Hola", "España", "Me siento sola desde que me mudé", "Sí, siempre me pasa. ¿Cuánto cuesta?", "Antes de pagar quiero hablar con Eduardo"]
+  espera: [deriva]
+
+- id: derivacion-mx-4
+  categoria: derivacion
+  pais: MX
+  fase_esperada: Derivación. Pregunta si puede cambiar el horario de una sesión que ya pagó; deriva.
+  turnos: ["Hola", "Ya tengo mi sesión pagada para mañana pero necesito cambiarla"]
+  espera: [deriva]

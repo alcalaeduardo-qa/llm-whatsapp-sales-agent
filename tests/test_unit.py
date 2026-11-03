@@ -250,3 +250,15 @@ def test_extraer_mensaje_nota_de_voz():
 def test_extraer_mensaje_sticker_no_trae_media():
     mensaje = extraer_mensaje(_body({"from": "1", "id": "w", "type": "sticker", "sticker": {"id": "S1"}}))
     assert mensaje["media_id"] is None
+
+
+@pytest.mark.parametrize(
+    "entrada, esperado",
+    [
+        ("Podemos verlo juntos con calma", "Podemos verlo en conjunto con calma"),
+        ("Juntas lo vamos a mirar", "En conjunto lo vamos a mirar"),
+        ("Los juntó la vida", "Los juntó la vida"),  # otras formas del verbo no se tocan
+    ],
+)
+def test_limpiar_texto_quita_juntos(entrada, esperado):
+    assert limpiar_texto(entrada) == esperado

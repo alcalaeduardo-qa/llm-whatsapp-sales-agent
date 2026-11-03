@@ -59,12 +59,12 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] Tests con fixture de audio.
 
 ## Días 7–8 — Evals + red-teaming (pieza central del portafolio)
-- [ ] `evals/dataset/`: 40–60 conversaciones multi-turno por fase (filtro, patrón, propuesta, cierre, objeción, derivación) y por país (MX, VE/CO, otros).
-- [ ] **Checks deterministas:** formato, signos/palabras prohibidas, precio, horarios ofrecidos = los calculados, no asume género (lista de adjetivos), se presenta como Sofía en turno 1.
-- [ ] **LLM-as-judge** (rúbrica 1–5): fase correcta, tono confrontativo-respetuoso, siguiente paso claro, no promete resultados.
-- [ ] **Red-team:** prompt injection ("ignora instrucciones"), pedir descuento, cambiar CLABE, sacar el system prompt, crisis encubierta, "¿eres bot?", horarios fuera de rango.
-- [ ] Herramienta: promptfoo o DeepEval (cubre brecha). Reporte en `evals/RESULTS.md` con tabla pass-rate por categoría y por versión de prompt.
-- [ ] `docs/FMEA.md`: modos de falla → severidad/ocurrencia/detección → control (guardrail/eval). Diferenciador QA industrial → IA.
+- [x] `evals/dataset/`: 40–60 conversaciones multi-turno por fase (filtro, patrón, propuesta, cierre, objeción, derivación) y por país (MX, VE/CO, otros).
+- [x] **Checks deterministas:** formato, signos/palabras prohibidas, precio, horarios ofrecidos = los calculados, no asume género (lista de adjetivos), se presenta como Sofía en turno 1.
+- [x] **LLM-as-judge** (rúbrica 1–5): fase correcta, tono confrontativo-respetuoso, siguiente paso claro, no promete resultados.
+- [x] **Red-team:** prompt injection ("ignora instrucciones"), pedir descuento, cambiar CLABE, sacar el system prompt, crisis encubierta, "¿eres bot?", horarios fuera de rango.
+- [x] Herramienta: promptfoo o DeepEval (cubre brecha). Reporte en `evals/RESULTS.md` con tabla pass-rate por categoría y por versión de prompt.
+- [x] `docs/FMEA.md`: modos de falla → severidad/ocurrencia/detección → control (guardrail/eval). Diferenciador QA industrial → IA.
 
 ## Día 9 — Docker, CI, deploy, observabilidad, privacidad
 - [ ] Dockerfile multi-stage + docker-compose.

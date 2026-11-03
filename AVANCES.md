@@ -23,18 +23,18 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 3 | Guardrails: crisis antes del LLM + validador de salida | ✅ en `main` (PRs #3 y #4) |
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
-| 6 | Audio (transcripción con Groq) | ✅ probado en vivo; PR #8 abierto contra `main` (falta merge) |
-| 7–8 | Evals + red-teaming | ⬜ |
+| 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
+| 7–8 | Evals + red-teaming | ✅ en la rama `dia-7-evals`: 64 casos, 89.1 % pasan (línea base 32.8 %) |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **332 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **385 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-6-audio`**, subida a GitHub con **PR #8 contra `main`** (falta merge). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 7.
+- Rama actual: **`dia-7-evals`** (desde `main` con el Día 6 integrado). Subida a GitHub con PR contra `main` (falta merge). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 9.
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -68,6 +68,8 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 | `app/prompt.py` | Carga `prompts/sofia.md` (o la plantilla) y sustituye `{{variables}}` |
 | `app/scheduling.py` | Horarios ofrecidos con día y fecha en español; salta los ocupados |
 | `app/transcripcion.py` | **Día 6**: notas de voz con Groq (`whisper-large-v3-turbo`, español) |
+| `evals/` | **Días 7–8**: `run.py` (runner con DeepEval), `metricas.py` (22 checks + 2 jueces), `simulador.py` (flujo real sin WhatsApp), `dataset/` (48 ventas + 16 red-team), `clasificador.py` + `casos_crisis.yaml`, `RESULTS.md`, `historial.json` |
+| `docs/FMEA.md` | 24 modos de falla con S/O/D, RPN, control y métrica |
 | `app/calendario.py` | **Día 5**: iCloud por CalDAV: lee ocupados (caché 2 min) y crea la reserva |
 | `app/comandos.py` | Comandos de Eduardo en Telegram |
 | `app/store.py` | Supabase: `mensajes` y `conversaciones` (estado) |
@@ -145,6 +147,9 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - En Git Bash, los heredocs con `\n` dentro de scripts de Python se convirtieron en saltos reales: para editar código usar el editor, no `sed`/heredocs con escapes. Los archivos deben quedar con fin de línea LF.
 - **Ventana de 24 h de WhatsApp:** fuera de ella Meta **acepta** el texto libre (200) y segundos después manda un estado `failed` con código **131047** por el webhook. Por eso: antes de mandar avisos de reserva o recordatorios se revisa el último mensaje de la persona (`store.en_ventana_de_whatsapp`), y cualquier estado `failed` se le reporta a Eduardo por Telegram (`main.avisar_fallos`).
 - Claude solo ve el historial de mensajes: no sabía qué sesiones estaban reservadas y llegó a decirle a una persona con reserva que "su lugar no estaba apartado". Ahora `main.contexto_de` le pasa las sesiones próximas de esa persona leídas del calendario (`NOTA_SESION_RESERVADA`), junto con `NOTA_DEVUELTA` si Eduardo ya la atendió.
+- **Evals:** un juez LLM que no conoce la especificación castiga al agente por seguirla. El juez recibe el prompt real en `scenario` (solo en ejecución; nunca se guarda). `ConversationalGEval` de DeepEval 4.3 **no** acepta `CONTEXT` ni `CHATBOT_ROLE` como parámetros: solo ROLE, CONTENT, SCENARIO, EXPECTED_OUTCOME, METADATA, TAGS, TOOLS_CALLED, RETRIEVAL_CONTEXT y AUDIO.
+- **Clasificador de crisis:** con etiquetas SI/NO, el modelo contestaba la pregunta de la persona ("¿hablo con una IA?" → "Sí") y contaba como crisis. Ahora usa RIESGO/NORMAL y recibe los mensajes en `<mensajes>`.
+- **"juntos":** rechazarlo en el validador hacía que Claude lo repitiera y la conversación terminara en el respaldo. Se reemplaza por "en conjunto" en `limpiar_texto`. El largo es regla suave (se envía si es la única falla).
 - Los tests tienen un candado (`tests/conftest.py`): si un test intenta usar el Supabase, el Claude o el iCloud reales, falla. Cada función nueva de `store` debe tener su doble en `StoreFalso`.
 - Meta manda los móviles de México como `521…`; para enviar se usa `52…` (`normalizar_numero`). En comandos, `numero_meta` hace lo inverso.
 
@@ -160,12 +165,25 @@ Probado en vivo el 3 de noviembre: lectura de "Casa", `/reservar` (evento con al
 
 ### Día 6 (notas de voz)
 Probado en vivo el 3 de noviembre: la transcripción fue exacta y Sofía respondió como a un texto (unos 20 s en total). La transcripción entra al flujo normal con el prefijo `[nota de voz]` (crisis, modo humano y sesiones reservadas aplican igual); Claude recibe `NOTA_AUDIO`. PR #8 abierto.
-- Pregunta abierta para Eduardo: si alguien que ya tiene sesión reservada quiere comprar otra, ¿Sofía le vende o deriva? Hoy `NOTA_SESION_RESERVADA` le dice que no ofrezca horarios.
+- Decidido (3 de noviembre): Sofía **sí** puede vender una sesión adicional a quien ya tiene una, pero siempre pago primero y comprobante a Eduardo, que confirma con `/reservar` (`NOTA_SESION_RESERVADA`).
 
-### Días 7–10
+### Días 7–8 (evals y red-teaming)
+Hechos el 3 de noviembre con **DeepEval** (Opus 5.5 como juez) contra el prompt real; datos de pago ficticios en los evals. Comandos:
+- `python -m evals.run` (completo, ~2.5 USD), `--sin-juez` (centavos), `--solo <categoría|id|ventas|redteam>`, `--limite N`.
+- `python -m evals.clasificador` (sensibilidad/especificidad del clasificador de crisis, centavos).
+
+Resultados: 32.8 % → 46.9 % → 57.8 % → **89.1 %** de casos pasan; red-team 94 %; clasificador 27/27 crisis reales y 60/60 casos sin riesgo. Gasto total en evals: unos 7.8 USD. Arreglos en Sofía que salieron de los evals: "juntos" → "en conjunto", clasificador RIESGO/NORMAL, derivación si Sofía la promete, largo como regla suave, límite de 1000 caracteres, segunda sesión con pago primero.
+
+Pendiente del Día 7:
+1. PR de `dia-7-evals` abierto contra `main` (falta merge).
+2. Hallazgos abiertos (ver `docs/FMEA.md`): hora equivalente mal calculada para otros países (prioridad 1: calcularla en código), "estás lista", enlace de pago antes de elegir horario, no aceptar un horario válido propuesto, guía de apego no ofrecida a alguien de EE. UU.
+3. Agregar casos de notas de voz al dataset.
+
+### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
+- Día 9 (CI): correr `pytest` y `python -m evals.run --sin-juez` en cada PR. Los evals sin juez llaman a Claude (necesitan `ANTHROPIC_API_KEY` como secreto) y usan el prompt de ejemplo si el real no está.
 - Día 9 (deploy): `prompts/sofia.md` no viene en el repo → proveerlo en el servidor (archivo secreto o variable). El webhook de Telegram y el de Meta cambian a la URL definitiva.
-- Día 10 (PRIVACY): mencionar que Telegram recibe mensajes y comprobantes para Eduardo, y que iCloud guarda el teléfono en el evento.
+- Día 10 (PRIVACY): mencionar que Telegram recibe mensajes y comprobantes para Eduardo, que iCloud guarda el teléfono en el evento y que Groq recibe las notas de voz para transcribirlas.
 
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).
