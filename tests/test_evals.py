@@ -170,3 +170,13 @@ async def test_metrica_determinista_con_interfaz_de_deepeval():
     m = metricas.MetricaDeterminista("presentacion", CHEQUEOS["presentacion"], c)
     assert await m.a_measure(metricas.caso_de_prueba(c)) == 1.0
     assert m.is_successful() and m.__name__ == "presentacion"
+
+
+@pytest.mark.parametrize(
+    "porcentaje, minimo, cumple",
+    [(89.1, 85, True), (85.0, 85, True), (84.9, 85, False), (10.0, None, True)],
+)
+def test_umbral_minimo_para_ci(porcentaje, minimo, cumple):
+    from evals.run import cumple_minimo
+
+    assert cumple_minimo({"porcentaje": porcentaje}, minimo) is cumple

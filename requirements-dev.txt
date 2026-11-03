@@ -1,9 +1,10 @@
 -r requirements.txt
-pytest
-pytest-cov
-respx
-freezegun
-ruff
-pre-commit
-watchfiles
-deepeval
+# Versiones fijas: sin fijar, pip en CI resolvió deepeval 0.21 (importa langchain.schema, ya no existe)
+pytest==9.2.0
+pytest-cov==7.1.0
+respx==0.23.1
+freezegun==1.5.5
+ruff==0.17.3
+pre-commit==4.7.0
+watchfiles==1.3.0
+deepeval==4.3.2

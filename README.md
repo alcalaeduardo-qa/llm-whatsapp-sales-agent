@@ -5,7 +5,8 @@
 **Asistente de ventas por WhatsApp con IA, guardrails en código y evals con red-teaming.**
 **AI sales agent on WhatsApp with code-level guardrails and red-team evals.**
 
-[![Tests](https://img.shields.io/badge/tests-385%20passing-2ea44f)](tests)
+[![CI](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-389%20passing-2ea44f)](tests)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)](pyproject.toml)
 [![Evals](https://img.shields.io/badge/evals-89.1%25%20pass-2ea44f)](evals/RESULTS.md)
 [![Red team](https://img.shields.io/badge/red--team-15%2F16-2ea44f)](evals/dataset/redteam.yaml)
@@ -110,7 +111,7 @@ app/
   store.py           Supabase: mensajes, estado y recordatorios
 evals/               Dataset, métricas, jueces y reportes (DeepEval)
 docs/FMEA.md         Análisis de modos y efectos de falla
-tests/               385 tests (pytest, respx, freezegun)
+tests/               389 tests (pytest, respx, freezegun)
 db/schema.sql        Esquema de Supabase
 ```
 
@@ -135,7 +136,7 @@ pre-commit install
 ### Comandos
 
 ```bash
-pytest                                   # 385 tests + cobertura (mínimo 80 %)
+pytest                                   # 389 tests + cobertura (mínimo 80 %)
 python -m evals.run                      # evals completos con juez (~2.5 USD)
 python -m evals.run --sin-juez           # solo checks deterministas (centavos)
 python -m evals.run --solo redteam       # una categoría, un id o un dataset
@@ -145,13 +146,14 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 ### Roadmap
 
 - [x] Webhook seguro, memoria e idempotencia
-- [x] Tests base (385, cobertura 98 %)
+- [x] Tests base (389, cobertura 98 %)
 - [x] Guardrails de crisis y validador de salida
 - [x] Derivación a Eduardo y modo humano por Telegram
 - [x] Agenda real con iCloud, reservas y recordatorios
 - [x] Notas de voz con Groq
 - [x] Evals, red-teaming y FMEA
-- [ ] Docker, CI con evals en cada PR y deploy en Railway
+- [x] CI con GitHub Actions: lint, tests y evals deterministas en cada PR
+- [ ] Docker y deploy en Railway
 - [ ] Métricas de costo y latencia, retención de datos a 90 días
 - [ ] Hora equivalente calculada en código para otros países (prioridad 1 del FMEA)
 
