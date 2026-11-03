@@ -36,6 +36,10 @@ ICLOUD_USUARIO = os.getenv("ICLOUD_USUARIO", "")
 ICLOUD_PASSWORD_APP = os.getenv("ICLOUD_PASSWORD_APP", "")
 ICLOUD_CALENDARIO = os.getenv("ICLOUD_CALENDARIO", "Casa")
 
+# Notas de voz: transcripción con Groq (Whisper). Sin clave, Sofía pide que lo escriban.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODELO_TRANSCRIPCION = os.getenv("GROQ_MODELO_TRANSCRIPCION", "whisper-large-v3-turbo")
+
 # Recordatorio por WhatsApp a la persona antes de su sesión. Si pasaron más de 24 h desde su último
 # mensaje, WhatsApp solo acepta una plantilla aprobada (cuerpo con un parámetro: la hora).
 RECORDATORIO_MINUTOS_ANTES = int(os.getenv("RECORDATORIO_MINUTOS_ANTES", "10"))

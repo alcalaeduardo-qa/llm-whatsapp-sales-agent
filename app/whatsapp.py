@@ -11,6 +11,7 @@ logger = logging.getLogger("sofia.whatsapp")
 
 # Archivos que pueden ser un comprobante de pago
 TIPOS_MEDIA = {"image", "document"}
+AUDIO = "audio"  # notas de voz: se transcriben
 
 # Ventana de servicio de WhatsApp (24 h), con 10 minutos de margen
 VENTANA = timedelta(hours=23, minutes=50)
@@ -37,7 +38,7 @@ def extraer_mensaje(body: dict) -> dict | None:
     if not mensajes:
         return None
     m = mensajes[0]
-    media = m.get(m["type"]) if m["type"] in TIPOS_MEDIA else None
+    media = m.get(m["type"]) if m["type"] in TIPOS_MEDIA or m["type"] == AUDIO else None
     return {
         "from": m["from"],
         "id": m["id"],

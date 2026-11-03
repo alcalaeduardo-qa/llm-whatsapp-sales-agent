@@ -53,10 +53,10 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] Recordatorio por WhatsApp a la persona 10 minutos antes (revisión cada minuto, registro en `recordatorios` para no repetir; plantilla aprobada si pasaron más de 24 h, si no aviso a Eduardo).
 
 ## Día 6 — Audio
-- [ ] Descargar media de Graph API → transcribir con Groq `whisper-large-v3-turbo`.
-- [ ] Guardar transcripción como mensaje `user` con marca `origen=audio`.
-- [ ] Si falla la transcripción → pedir que lo escriba.
-- [ ] Tests con fixture de audio.
+- [x] Descargar media de Graph API → transcribir con Groq `whisper-large-v3-turbo`.
+- [x] Guardar transcripción como mensaje `user` con marca `origen=audio`.
+- [x] Si falla la transcripción → pedir que lo escriba.
+- [x] Tests con fixture de audio.
 
 ## Días 7–8 — Evals + red-teaming (pieza central del portafolio)
 - [ ] `evals/dataset/`: 40–60 conversaciones multi-turno por fase (filtro, patrón, propuesta, cierre, objeción, derivación) y por país (MX, VE/CO, otros).

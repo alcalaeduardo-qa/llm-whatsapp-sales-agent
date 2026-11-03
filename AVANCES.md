@@ -22,19 +22,19 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 2 | Tests base (pytest, ruff, pre-commit, respx, freezegun) | ✅ en `main` (PRs #2 y #4) |
 | 3 | Guardrails: crisis antes del LLM + validador de salida | ✅ en `main` (PRs #3 y #4) |
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
-| 5 | Agenda real con iCloud | ✅ probado en vivo; PR #7 abierto contra `main` (falta merge) |
-| 6 | Audio (transcripción con Groq) | ⬜ |
+| 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
+| 6 | Audio (transcripción con Groq) | ✅ probado en vivo; PR #8 abierto contra `main` (falta merge) |
 | 7–8 | Evals + red-teaming | ⬜ |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **307 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **332 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-5-agenda`**, subida a GitHub con **PR #7 contra `main`** (falta que Eduardo haga merge). Después del merge: `git checkout main && git pull`, verificar que `prompts/sofia.md` siga existiendo y crear la rama del Día 6 desde `main`.
+- Rama actual: **`dia-6-audio`**, subida a GitHub con **PR #8 contra `main`** (falta merge). Después del merge: `git checkout main && git pull`, verificar `prompts/sofia.md` y crear la rama del Día 7.
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -53,6 +53,8 @@ WhatsApp ──► POST /webhook (firma HMAC de Meta) ──► 200 inmediato + 
                  │            4. detectar crisis (palabras explícitas → si no, clasificador Haiku) → respuesta fija + pausa + alerta
                  │            5. generar con Claude (tool derivar_a_eduardo) → validar → 1 reintento → respaldo
                  │            6. enviar por WhatsApp; si derivó → modo humano + alerta 🙋
+                 ├─ nota de voz ─► descargar → transcribir con Groq → procesar_mensaje("[nota de voz] …")
+                 │                (si falla: "¿me lo puedes escribir?")
                  └─ imagen/documento ─► reenviar a Telegram + derivar (motivo comprobante)
 
 Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► comandos.manejar
@@ -65,6 +67,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 | `app/guardrails.py` | Detección de crisis, validador de salida, respuestas fijas (crisis, pausa, derivación, comprobante, reserva, respaldo) |
 | `app/prompt.py` | Carga `prompts/sofia.md` (o la plantilla) y sustituye `{{variables}}` |
 | `app/scheduling.py` | Horarios ofrecidos con día y fecha en español; salta los ocupados |
+| `app/transcripcion.py` | **Día 6**: notas de voz con Groq (`whisper-large-v3-turbo`, español) |
 | `app/calendario.py` | **Día 5**: iCloud por CalDAV: lee ocupados (caché 2 min) y crea la reserva |
 | `app/comandos.py` | Comandos de Eduardo en Telegram |
 | `app/store.py` | Supabase: `mensajes` y `conversaciones` (estado) |
@@ -151,11 +154,15 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 
 ### Cierre del Día 5
 Probado en vivo el 3 de noviembre: lectura de "Casa", `/reservar` (evento con alertas + confirmación por WhatsApp entregada), ventana de 24 h (fallo 131047 detectado y reportado) y nota de sesión reservada para Claude.
-1. **Merge del PR #7** y borrar las ramas `dia-4-derivacion` y `dia-5-agenda` (Eduardo autoriza).
+1. ~~Merge del PR #7~~ y ramas borradas (3 de noviembre).
 2. **Recordatorio por WhatsApp en vivo:** quedaron dos sesiones de prueba el 3/11 a las 3 y 4 PM; con el servidor encendido llegan a las 2:50 y 3:50. Confirmar que llegó y borrar los eventos.
 3. **Plantilla de WhatsApp** (opcional, recomendada antes de producción) para recordatorios fuera de la ventana de 24 h: WhatsApp Manager, categoría Utilidad, español (México), cuerpo con `{{1}}` = la hora; poner su nombre en `WHATSAPP_PLANTILLA_RECORDATORIO`.
 
-### Días 6–10
+### Día 6 (notas de voz)
+Probado en vivo el 3 de noviembre: la transcripción fue exacta y Sofía respondió como a un texto (unos 20 s en total). La transcripción entra al flujo normal con el prefijo `[nota de voz]` (crisis, modo humano y sesiones reservadas aplican igual); Claude recibe `NOTA_AUDIO`. PR #8 abierto.
+- Pregunta abierta para Eduardo: si alguien que ya tiene sesión reservada quiere comprar otra, ¿Sofía le vende o deriva? Hoy `NOTA_SESION_RESERVADA` le dice que no ofrezca horarios.
+
+### Días 7–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
 - Día 9 (deploy): `prompts/sofia.md` no viene en el repo → proveerlo en el servidor (archivo secreto o variable). El webhook de Telegram y el de Meta cambian a la URL definitiva.
 - Día 10 (PRIVACY): mencionar que Telegram recibe mensajes y comprobantes para Eduardo, y que iCloud guarda el teléfono en el evento.
