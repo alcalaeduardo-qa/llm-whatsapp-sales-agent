@@ -25,16 +25,16 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI listo en la rama `dia-9-ci`; falta Docker, Railway, métricas, retención |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI en `main` (PR #11); Docker y hora equivalente en la rama `dia-9-hora-docker`; falta Railway, métricas, retención |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **389 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **403 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-ci`** (desde `main` con README y Días 1–8). Las ramas anteriores ya se borraron.
+- Rama actual: **`dia-9-hora-docker`** (desde `main` con el CI integrado).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -182,7 +182,9 @@ Pendiente del Día 7:
 ### Día 9 (en curso)
 - **CI** (`.github/workflows/ci.yml`): en cada PR y push a `main`, ruff + 389 tests (sin secretos) y evals sin juez (`--minimo 85`, ~0.11 USD). `evals-juez.yml`: corrida completa con juez solo a mano (Actions → Run workflow, ~2.5 USD).
 - **Secretos que Eduardo debe crear en GitHub** (Settings → Secrets and variables → Actions): `ANTHROPIC_API_KEY` y `SOFIA_PROMPT` (contenido completo de `prompts/sofia.md`). Sin ellos los evals se omiten o usan la plantilla pública con un aviso.
-- Falta: Dockerfile (Docker no está instalado en la PC de Eduardo; se puede construir en CI/Railway), deploy en Railway, subdominio de sanandoalmaa.com, tabla de métricas, retención de 90 días, comando BORRAR MIS DATOS, aviso de privacidad en el primer mensaje y hora equivalente calculada en código (prioridad 1 del FMEA).
+- **Hora equivalente** en código (`scheduling.horas_equivalentes`, 11 zonas con `zoneinfo`); Claude la recibe en `NOTA_HORAS_EQUIVALENTES`. Verificado: Houston 3 PM = 3 PM México en noviembre, España +7 h.
+- **Docker**: `Dockerfile` multi-etapa (usuario sin privilegios, healthcheck, `$PORT`), `.dockerignore` (excluye `.env` y `prompts/sofia.md`), `docker-compose.yml`. El CI construye la imagen, verifica que no contenga el prompt y que responda `/health`. En el servidor el prompt va en la variable `SOFIA_PROMPT` (`prompt.texto_del_prompt`).
+- Falta: deploy en Railway, subdominio de sanandoalmaa.com, tabla de métricas, retención de 90 días, comando BORRAR MIS DATOS y aviso de privacidad en el primer mensaje.
 
 ### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:

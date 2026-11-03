@@ -5,6 +5,7 @@ from functools import lru_cache
 
 from app import calendario, config
 from app.prompt import cargar_prompt
+from app.scheduling import formatear_opciones, horas_equivalentes
 from app.text import limpiar_texto
 
 logger = logging.getLogger("sofia.llm")
@@ -60,6 +61,13 @@ NOTA_DEVUELTA = (
     "comprobante o pregunta algo fuera de las fases. Nunca escribas el prefijo [Eduardo]."
 )
 
+NOTA_HORAS_EQUIVALENTES = (
+    "HORAS EQUIVALENTES\n"
+    "Si la persona está fuera de México, usa exactamente estas horas, calculadas por el sistema. Nunca calcules "
+    "tú una diferencia de horario. Si su país no aparece, da solo la hora de México y pídele que la confirme en "
+    "su zona."
+)
+
 NOTA_AUDIO = (
     "NOTAS DE VOZ\n"
     "Los mensajes que empiezan con [nota de voz] son transcripciones automáticas de audios de la persona. "
@@ -95,7 +103,10 @@ async def generar_respuesta(
     historial: list[dict], correccion: str | None = None, contexto: str | None = None
 ) -> Respuesta:
     ahora = datetime.now(config.ZONA_MX)
-    system = cargar_prompt(ahora, await calendario.opciones_horario(ahora))
+    inicios = await calendario.inicios_libres(ahora)
+    system = cargar_prompt(ahora, formatear_opciones(inicios, ahora))
+    if inicios:
+        system += f"\n\n{NOTA_HORAS_EQUIVALENTES}\n{horas_equivalentes(inicios, ahora)}"
     if contexto:
         system += f"\n\n{contexto}"
     if correccion:

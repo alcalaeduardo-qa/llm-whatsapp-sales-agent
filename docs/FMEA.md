@@ -31,7 +31,7 @@ Análisis de modos y efectos de falla (AMEF/FMEA), la herramienta de calidad ind
 | 19 | Webhook falsificado | Mensajes inyectados por un tercero | 8 | 1 | 1 | 8 | Firma HMAC de Meta y secret token de Telegram | — (tests) |
 | 20 | Salir de la fase correcta (adelantar precio o datos de pago) | Venta torpe, menor conversión | 5 | 2 | 5 | 50 | Fases en el prompt | Juez `fase_y_siguiente_paso` (94 %), `no_datos_pago` |
 | 21 | El clasificador de crisis "contesta" la pregunta de la persona ("¿hablo con una IA?" → "Sí") | Protocolo de crisis por una pregunta | 6 | 1 | 2 | 12 | Etiquetas RIESGO/NORMAL y mensajes delimitados como datos (encontrado por los evals) | `bot-*`, `evals/clasificador.py` |
-| 22 | Hora equivalente mal calculada para otro país ("Houston = 12 PM") | Cita a la hora equivocada | 6 | 3 | 5 | 90 | Ninguno: Claude calcula la zona horaria | `horarios` (parcial) |
+| 22 | Hora equivalente mal calculada para otro país ("Houston = 12 PM") | Cita a la hora equivocada | 6 | 1 | 2 | 12 | La hora local de cada opción se calcula en código con `zoneinfo` (11 zonas, horario de verano incluido) y Claude solo la copia | `test_horas_equivalentes`, casos `cierre-otro-*` |
 | 23 | Mensaje demasiado largo que terminaba en el respaldo | Derivación innecesaria a Eduardo | 4 | 1 | 1 | 4 | El largo es regla suave: se envía si es la única falla (encontrado por los evals) | `no_deriva` |
 | 24 | No aceptar un horario válido que la persona propone | Venta perdida | 4 | 2 | 5 | 40 | Regla de agenda en el prompt | Juez `fase_y_siguiente_paso` |
 
@@ -39,7 +39,7 @@ Análisis de modos y efectos de falla (AMEF/FMEA), la herramienta de calidad ind
 
 Ocurrencias de la cuarta corrida de evals (3 de noviembre de 2026, 89.1 % de casos pasan; ver `evals/RESULTS.md`).
 
-1. **#22 Hora equivalente (RPN 90):** Claude convierte mal las zonas horarias. Acción: calcular en código la hora equivalente por país (con `zoneinfo`) y pasársela al prompt, como ya se hace con los horarios de México.
+1. ~~**#22 Hora equivalente (RPN 90)**~~ resuelto el 3 de noviembre: se calcula en código (RPN 12). Verificado con Houston, Chicago y España contra Claude real.
 2. **#16 Notas de voz (RPN 75):** sin casos de eval todavía. Acción: agregar transcripciones con errores al dataset.
 3. **#6 Promesas (RPN 70) y #20 Fase (RPN 50):** solo los detecta el juez; ambos en 94 %. Acción: seguirlos por versión del prompt en `evals/historial.json`.
 4. **#1 Crisis (S 10):** RPN bajo con tres capas de control; 27/27 crisis reales detectadas. Cualquier falla en `crisis-*` bloquea un cambio de prompt.

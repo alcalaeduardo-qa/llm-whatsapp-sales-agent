@@ -17,6 +17,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-5-5")
+# Prompt real en el servidor (contenido completo de prompts/sofia.md). Vacío = se lee el archivo.
+SOFIA_PROMPT = os.getenv("SOFIA_PROMPT", "")
 # claude-haiku-5-5 razona antes de responder y ese razonamiento cuenta contra max_tokens;
 # con un límite bajo se corta antes de escribir el mensaje. El largo visible lo limita el validador.
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "16000"))

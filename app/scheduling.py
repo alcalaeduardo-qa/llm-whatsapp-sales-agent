@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from app import config
 
@@ -39,7 +40,7 @@ def _etiqueta_dia(dias_extra: int, fecha: date) -> str:
     return prefijo + dia_y_fecha(fecha)
 
 
-def calcular_horarios(
+def horarios_libres(
     ahora: datetime,
     hora_inicio: int = config.HORA_INICIO,
     hora_fin: int = config.HORA_FIN,
@@ -47,16 +48,12 @@ def calcular_horarios(
     cantidad: int = 2,
     ocupados: Sequence[tuple[datetime, datetime]] = (),
     duracion_minutos: int = config.SESION_MINUTOS,
-) -> str:
-    """Primer horario libre de cada día, respetando el margen mínimo.
-
-    Devuelve hasta `cantidad` opciones en días distintos, p. ej.
-    "hoy viernes 30 de octubre a las 5 PM o mañana sábado 31 de octubre a las 2 PM".
-    Un horario que se cruza con algo de `ocupados` (calendario de Eduardo) se salta.
-    """
+) -> list[datetime]:
+    """Primer horario libre de cada día, respetando el margen mínimo, en hasta `cantidad` días distintos.
+    Un horario que se cruza con algo de `ocupados` (calendario de Eduardo) se salta."""
     zona = ahora.tzinfo
     limite = ahora + timedelta(hours=margen_horas)
-    opciones = []
+    inicios = []
     for dias_extra in range(7):
         fecha = (ahora + timedelta(days=dias_extra)).date()
         for hora in range(hora_inicio, hora_fin):
@@ -64,11 +61,57 @@ def calcular_horarios(
             fin = inicio + timedelta(minutes=duracion_minutos)
             libre = all(not (inicio < o_fin and o_inicio < fin) for o_inicio, o_fin in ocupados)
             if inicio >= limite and libre:
-                hora_texto = inicio.strftime("%I").lstrip("0")
-                opciones.append(f"{_etiqueta_dia(dias_extra, fecha)} a las {hora_texto} PM")
+                inicios.append(inicio)
                 break
-        if len(opciones) == cantidad:
+        if len(inicios) == cantidad:
             break
-    if not opciones:
-        return SIN_HORARIOS
-    return " o ".join(opciones)
+    return inicios
+
+
+def _hora_12(momento: datetime) -> str:
+    return f"{momento.strftime('%I').lstrip('0')} {momento.strftime('%p')}"
+
+
+def describir_opcion(inicio: datetime, ahora: datetime) -> str:
+    """ "mañana sábado 31 de octubre a las 2 PM" """
+    return f"{_etiqueta_dia((inicio.date() - ahora.date()).days, inicio.date())} a las {_hora_12(inicio)}"
+
+
+def formatear_opciones(inicios: list[datetime], ahora: datetime) -> str:
+    return " o ".join(describir_opcion(i, ahora) for i in inicios) if inicios else SIN_HORARIOS
+
+
+def calcular_horarios(ahora: datetime, **kwargs) -> str:
+    """Las opciones ya redactadas, p. ej.
+    "hoy viernes 30 de octubre a las 5 PM o mañana sábado 31 de octubre a las 2 PM"."""
+    return formatear_opciones(horarios_libres(ahora, **kwargs), ahora)
+
+
+# Hora equivalente: Claude calculaba mal las zonas horarias ("Houston = 12 PM" cuando era la misma hora).
+# zoneinfo resuelve los horarios de verano de cada país en la fecha exacta de la sesión.
+ZONAS_EQUIVALENTES = [
+    ("Colombia, Perú y Ecuador", "America/Bogota"),
+    ("Venezuela", "America/Caracas"),
+    ("Chile", "America/Santiago"),
+    ("Argentina", "America/Argentina/Buenos_Aires"),
+    ("España", "Europe/Madrid"),
+    ("Estados Unidos, hora del Este (Nueva York, Miami)", "America/New_York"),
+    ("Estados Unidos, hora del Centro (Houston, Chicago, Dallas)", "America/Chicago"),
+    ("Estados Unidos, hora de la Montaña (Denver)", "America/Denver"),
+    ("Arizona (Phoenix)", "America/Phoenix"),  # no cambia de horario en verano, a diferencia de Denver
+    ("Estados Unidos, hora del Pacífico (Los Ángeles)", "America/Los_Angeles"),
+    ("Centroamérica (Guatemala, El Salvador, Honduras, Costa Rica)", "America/Guatemala"),
+]
+
+
+def horas_equivalentes(inicios: list[datetime], ahora: datetime) -> str:
+    """Tabla para el prompt con la hora local de cada opción en los países más comunes."""
+    lineas = []
+    for inicio in inicios:
+        equivalentes = []
+        for nombre, zona in ZONAS_EQUIVALENTES:
+            local = inicio.astimezone(ZoneInfo(zona))
+            dia = "" if local.date() == inicio.date() else f" del {dia_y_fecha(local.date())}"
+            equivalentes.append(f"{nombre} {_hora_12(local)}{dia}")
+        lineas.append(f"- {describir_opcion(inicio, ahora)} hora México equivale a: " + "; ".join(equivalentes) + ".")
+    return "\n".join(lineas)

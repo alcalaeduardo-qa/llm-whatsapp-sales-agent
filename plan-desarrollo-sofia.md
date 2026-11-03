@@ -67,8 +67,8 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] `docs/FMEA.md`: modos de falla → severidad/ocurrencia/detección → control (guardrail/eval). Diferenciador QA industrial → IA.
 
 ## Día 9 — Docker, CI, deploy, observabilidad, privacidad
-- [ ] Dockerfile multi-stage + docker-compose.
-- [ ] GitHub Actions: ruff + pytest + evals deterministas en cada PR; evals LLM en `workflow_dispatch`/nightly.
+- [x] Dockerfile multi-stage + docker-compose.
+- [x] GitHub Actions: ruff + pytest + evals deterministas en cada PR; evals LLM en `workflow_dispatch`/nightly.
 - [ ] Deploy en Railway desde Dockerfile; webhook definitivo en subdominio de sanandoalmaa.com.
 - [ ] Tabla `metricas`: latencia, tokens in/out, costo por mensaje, fase detectada.
 - [ ] **Retención 90 días:** job diario que borra/anonimiza conversaciones sin actividad >90 días.

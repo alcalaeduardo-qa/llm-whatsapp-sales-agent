@@ -40,6 +40,29 @@ jobs:
           DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
         run: pytest
 
+  docker:
+    name: Imagen de Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir
+        run: docker build -t sofia:ci .
+      - name: El prompt real no está en la imagen
+        run: |
+          if docker run --rm --entrypoint sh sofia:ci -c "test -e /app/prompts/sofia.md -o -e /app/.env"; then
+            echo "::error::La imagen contiene prompts/sofia.md o .env"; exit 1
+          fi
+      - name: Arranca y responde /health
+        run: |
+          docker run -d --name sofia -p 8000:8000 sofia:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then echo; exit 0; fi
+            sleep 1
+          done
+          docker logs sofia
+          exit 1
+
   evals:
     name: Evals deterministas
     needs: tests

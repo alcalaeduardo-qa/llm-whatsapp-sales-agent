@@ -42,4 +42,10 @@ def cargar_prompt(ahora: datetime | None = None, opciones_horario: str | None = 
         "opciones_horario": opciones_horario or calcular_horarios(ahora),
         **config.DATOS_PAGO,
     }
-    return renderizar(ruta_prompt().read_text(encoding="utf-8"), valores)
+    return renderizar(texto_del_prompt(), valores)
+
+
+def texto_del_prompt() -> str:
+    """En el servidor el prompt llega en la variable SOFIA_PROMPT (nunca va dentro de la imagen de Docker);
+    en desarrollo, del archivo prompts/sofia.md o de la plantilla."""
+    return config.SOFIA_PROMPT or ruta_prompt().read_text(encoding="utf-8")
