@@ -262,3 +262,8 @@ def test_extraer_mensaje_sticker_no_trae_media():
 )
 def test_limpiar_texto_quita_juntos(entrada, esperado):
     assert limpiar_texto(entrada) == esperado
+
+
+def test_prompt_desde_variable_de_entorno_tiene_prioridad(monkeypatch):
+    monkeypatch.setattr(config, "SOFIA_PROMPT", "Prompt del servidor {{fecha_hora}}")
+    assert cargar_prompt(datetime(2026, 10, 30, 9, tzinfo=MX)).startswith("Prompt del servidor viernes 30")

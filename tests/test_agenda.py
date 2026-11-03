@@ -8,7 +8,7 @@ import icalendar
 import pytest
 
 from app import calendario, comandos, config, guardrails
-from app.scheduling import SIN_HORARIOS, calcular_horarios
+from app.scheduling import SIN_HORARIOS, calcular_horarios, dia_y_fecha, horas_equivalentes
 from tests.conftest import payload, post_firmado
 from tests.falsos import _alertas, _enviados
 
@@ -324,13 +324,59 @@ def test_reservar_aunque_falle_whatsapp(entorno, cal, telegram_listo, manana_2pm
     assert "No pude avisarle por WhatsApp" in _alertas(entorno["telegram"])[0]
 
 
-def test_la_ia_recibe_los_horarios_del_calendario(entorno, monkeypatch):
-    async def opciones(_ahora):
-        return "mañana lunes 2 de noviembre a las 5 PM o el martes 3 de noviembre a las 3 PM"
+def test_la_ia_recibe_los_horarios_del_calendario_y_sus_equivalentes(entorno, monkeypatch):
+    manana = datetime.now(MX).replace(hour=17, minute=0, second=0, microsecond=0) + timedelta(days=1)
 
-    monkeypatch.setattr(calendario, "opciones_horario", opciones)
+    async def inicios(_ahora):
+        return [manana]
+
+    monkeypatch.setattr(calendario, "inicios_libres", inicios)
     post_firmado(entorno["http"], payload(texto="¿Qué horarios tienes?"))
-    assert "mañana lunes 2 de noviembre a las 5 PM" in entorno["claude"].peticiones[0]["system"]
+    system = entorno["claude"].peticiones[0]["system"]
+    assert f"mañana {dia_y_fecha(manana.date())} a las 5 PM" in system
+    assert "HORAS EQUIVALENTES" in system and "Houston, Chicago, Dallas)" in system
+
+
+def test_sin_horarios_libres_no_hay_tabla_de_equivalentes(entorno, monkeypatch):
+    async def ninguno(_ahora):
+        return []
+
+    monkeypatch.setattr(calendario, "inicios_libres", ninguno)
+    post_firmado(entorno["http"], payload(texto="¿Qué horarios tienes?"))
+    system = entorno["claude"].peticiones[0]["system"]
+    assert "HORAS EQUIVALENTES" not in system and "Eduardo te propondrá un horario" in system
+
+
+# --- Hora equivalente calculada en código (prioridad 1 del FMEA) --------------------------------------
+@pytest.mark.parametrize(
+    "fecha, pais, esperado",
+    [
+        # 3 de noviembre: EE. UU. ya en horario de invierno, Chile y España en su horario de esa época
+        (_mx(3, 14), "Houston", "2 PM"),  # caso real: Claude decía 12 PM
+        (_mx(3, 14), "Los Ángeles", "12 PM"),
+        (_mx(3, 14), "Nueva York", "3 PM"),
+        (_mx(3, 14), "Venezuela", "4 PM"),
+        (_mx(3, 14), "Chile", "5 PM"),
+        (_mx(3, 14), "España", "9 PM"),
+        (_mx(3, 14), "Colombia", "3 PM"),
+        # Julio: horario de verano en EE. UU. y España; Phoenix no cambia y se separa de Denver
+        (_mx(15, 14, mes=7), "Houston", "3 PM"),
+        (_mx(15, 14, mes=7), "España", "10 PM"),
+        (_mx(15, 14, mes=7), "Denver", "2 PM"),
+        (_mx(15, 14, mes=7), "Phoenix", "1 PM"),
+    ],
+)
+def test_horas_equivalentes(fecha, pais, esperado):
+    tabla = horas_equivalentes([fecha], fecha.replace(hour=9))
+    tramo = next(t for t in tabla.split("; ") if pais in t)
+    assert tramo.endswith(esperado) or tramo.endswith(f"{esperado}."), tramo
+
+
+def test_equivalente_que_cae_en_otro_dia():
+    # 7 PM en México son las 2 AM del día siguiente en España
+    tarde = _mx(3, 19)
+    tabla = horas_equivalentes([tarde], tarde.replace(hour=9))
+    assert "España 2 AM del miércoles 4 de noviembre" in tabla
 
 
 def test_reservar_fuera_de_ventana_no_intenta_avisar(entorno, cal, telegram_listo, manana_2pm):

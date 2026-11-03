@@ -15,7 +15,7 @@ from functools import lru_cache
 import icalendar
 
 from app import config
-from app.scheduling import calcular_horarios
+from app.scheduling import formatear_opciones, horarios_libres
 
 logger = logging.getLogger("sofia.calendario")
 
@@ -117,15 +117,20 @@ def invalidar_cache() -> None:
     _cache.update(vence=0.0, dia=None, ocupados=[])
 
 
-async def opciones_horario(ahora: datetime) -> str:
-    """Horarios libres para el prompt. Si iCloud falla o no está configurado, horarios calculados."""
+async def inicios_libres(ahora: datetime) -> list[datetime]:
+    """Horarios libres a ofrecer. Si iCloud falla o no está configurado, horarios calculados."""
     if not configurado():
-        return calcular_horarios(ahora)
+        return horarios_libres(ahora)
     try:
-        return calcular_horarios(ahora, ocupados=await ocupados(ahora))
+        return horarios_libres(ahora, ocupados=await ocupados(ahora))
     except Exception:
         logger.exception("No se pudo leer el calendario de iCloud; se ofrecen horarios sin consultarlo")
-        return calcular_horarios(ahora)
+        return horarios_libres(ahora)
+
+
+async def opciones_horario(ahora: datetime) -> str:
+    """Las opciones ya redactadas para el prompt."""
+    return formatear_opciones(await inicios_libres(ahora), ahora)
 
 
 def _crear_evento(inicio: datetime, fin: datetime, telefono: str) -> None:

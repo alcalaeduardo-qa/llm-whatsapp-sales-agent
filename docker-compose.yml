@@ -1,0 +1,11 @@
+# Correr Sofía en local con Docker:  docker compose up --build
+# Lee las claves de .env y monta el prompt real en modo solo lectura (no se copia a la imagen).
+services:
+  sofia:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./prompts/sofia.md:/app/prompts/sofia.md:ro
+    restart: unless-stopped

@@ -1,0 +1,19 @@
+# Secretos y prompt real: nunca dentro de la imagen
+.env
+prompts/sofia.md
+
+# Desarrollo
+.venv/
+.git/
+.github/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+.deepeval/
+tests/
+evals/
+docs/
+*.md
+!prompts/sofia.example.md

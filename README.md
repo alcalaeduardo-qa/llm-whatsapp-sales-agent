@@ -6,7 +6,7 @@
 **AI sales agent on WhatsApp with code-level guardrails and red-team evals.**
 
 [![CI](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-389%20passing-2ea44f)](tests)
+[![Tests](https://img.shields.io/badge/tests-403%20passing-2ea44f)](tests)
 [![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)](pyproject.toml)
 [![Evals](https://img.shields.io/badge/evals-89.1%25%20pass-2ea44f)](evals/RESULTS.md)
 [![Red team](https://img.shields.io/badge/red--team-15%2F16-2ea44f)](evals/dataset/redteam.yaml)
@@ -69,6 +69,7 @@ flowchart LR
 - **Agenda real con iCloud:** Sofía ofrece solo horarios libres; `/reservar` vuelve a verificar, crea el evento con alertas y confirma por WhatsApp.
 - **Recordatorio por WhatsApp** 10 minutos antes, con plantilla aprobada fuera de la ventana de 24 h.
 - **Notas de voz** transcritas con Groq (`whisper-large-v3-turbo`) que siguen el mismo flujo que un texto.
+- **Hora equivalente calculada en código** para 11 zonas (Latinoamérica, España y EE. UU., con horario de verano): Claude ya no hace cuentas de zonas horarias.
 - **Fallas silenciosas de Meta detectadas:** si un mensaje aceptado se marca como fallido, Eduardo recibe un aviso.
 - **Privacidad:** los logs guardan longitud y huella, no el contenido; el prompt de venta no se publica.
 
@@ -111,7 +112,7 @@ app/
   store.py           Supabase: mensajes, estado y recordatorios
 evals/               Dataset, métricas, jueces y reportes (DeepEval)
 docs/FMEA.md         Análisis de modos y efectos de falla
-tests/               389 tests (pytest, respx, freezegun)
+tests/               403 tests (pytest, respx, freezegun)
 db/schema.sql        Esquema de Supabase
 ```
 
@@ -133,10 +134,18 @@ pre-commit install
    ```
 4. Registra el webhook de Meta en `https://<tu-url>/webhook` y el de Telegram con `python -m app.telegram https://<tu-url>`.
 
+### Docker
+
+```bash
+docker compose up --build        # lee .env y monta prompts/sofia.md en solo lectura
+```
+
+En producción el prompt real se pasa en la variable `SOFIA_PROMPT`: nunca va dentro de la imagen (el CI lo comprueba en cada PR).
+
 ### Comandos
 
 ```bash
-pytest                                   # 389 tests + cobertura (mínimo 80 %)
+pytest                                   # 403 tests + cobertura (mínimo 80 %)
 python -m evals.run                      # evals completos con juez (~2.5 USD)
 python -m evals.run --sin-juez           # solo checks deterministas (centavos)
 python -m evals.run --solo redteam       # una categoría, un id o un dataset
@@ -146,16 +155,17 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 ### Roadmap
 
 - [x] Webhook seguro, memoria e idempotencia
-- [x] Tests base (389, cobertura 98 %)
+- [x] Tests base (403, cobertura 98 %)
 - [x] Guardrails de crisis y validador de salida
 - [x] Derivación a Eduardo y modo humano por Telegram
 - [x] Agenda real con iCloud, reservas y recordatorios
 - [x] Notas de voz con Groq
 - [x] Evals, red-teaming y FMEA
 - [x] CI con GitHub Actions: lint, tests y evals deterministas en cada PR
-- [ ] Docker y deploy en Railway
+- [x] Docker: imagen multi-etapa verificada en el CI (arranca y responde `/health`)
+- [x] Hora equivalente calculada en código para otros países
+- [ ] Deploy en Railway
 - [ ] Métricas de costo y latencia, retención de datos a 90 días
-- [ ] Hora equivalente calculada en código para otros países (prioridad 1 del FMEA)
 
 ---
 

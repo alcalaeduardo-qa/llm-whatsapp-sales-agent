@@ -35,6 +35,7 @@ def config_de_prueba(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "ICLOUD_PASSWORD_APP", "")
     # Siempre la plantilla pública: los tests no dependen del prompt real (que no está en git)
     monkeypatch.setattr(prompt, "RUTA_PROMPT", tmp_path / "no-existe.md")
+    monkeypatch.setattr(config, "SOFIA_PROMPT", "")
     # Candado: ningún test usa Supabase, Claude ni iCloud reales (cada test que los necesite pone su doble)
     for modulo, cliente in ((store, "_cliente"), (llm, "_cliente"), (calendario, "_calendario")):
         monkeypatch.setattr(modulo, cliente, _servicio_real(f"{modulo.__name__}.{cliente}"))
