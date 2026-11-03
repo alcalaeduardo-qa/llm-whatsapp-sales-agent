@@ -22,7 +22,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 2 | Tests base (pytest, ruff, pre-commit, respx, freezegun) | ✅ en `main` (PRs #2 y #4) |
 | 3 | Guardrails: crisis antes del LLM + validador de salida | ✅ en `main` (PRs #3 y #4) |
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
-| 5 | Agenda real con iCloud | 🟡 código completo en la rama `dia-5-agenda` (sin PR); iCloud conectado; tabla `recordatorios` creada; falta la prueba en vivo de `/reservar` |
+| 5 | Agenda real con iCloud | ✅ probado en vivo; PR #7 abierto contra `main` (falta merge) |
 | 6 | Audio (transcripción con Groq) | ⬜ |
 | 7–8 | Evals + red-teaming | ⬜ |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
@@ -34,7 +34,7 @@ Tests: **307 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-5-agenda`** (creada desde `main`), con un commit que incluye todo lo hecho del Día 5 (`app/calendario.py`, `tests/test_agenda.py`, `/reservar` en `comandos.py`, horarios que saltan ocupados) y este archivo. **Subida a GitHub, sin PR.** El PR se abre cuando el Día 5 esté probado contra iCloud y tenga los recordatorios (o antes, si Eduardo lo pide).
+- Rama actual: **`dia-5-agenda`**, subida a GitHub con **PR #7 contra `main`** (falta que Eduardo haga merge). Después del merge: `git checkout main && git pull`, verificar que `prompts/sofia.md` siga existiendo y crear la rama del Día 6 desde `main`.
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -149,13 +149,11 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 
 ## 9. Qué falta (en orden)
 
-### Terminar el Día 5
-Hecho el 2 de noviembre: credenciales de iCloud en `.env` (lectura probada: encuentra el calendario "Casa" y sus ocupados), alarmas del evento (10 min antes y a la hora) y recordatorio por WhatsApp a la persona (`app/recordatorios.py`, arranca con el servidor si iCloud está configurado).
-1. ~~Migración en Supabase~~: tabla `recordatorios` creada el 2 de noviembre (migración `dia5_recordatorios`).
-2. **Prueba en vivo de `/reservar`** en un horario de prueba, revisar que el evento salga en el iPhone con sus dos alertas, y borrarlo.
-3. **Plantilla de WhatsApp** para recordatorios fuera de la ventana de 24 h: crearla en WhatsApp Manager (categoría Utilidad, idioma español México, cuerpo con `{{1}}` = la hora) y poner su nombre en `WHATSAPP_PLANTILLA_RECORDATORIO`. Sin plantilla, si la persona no escribió en 24 h, Sofía le avisa a Eduardo para que le escriba él.
-4. ~~Pregunta abierta~~: decidido, **solo el calendario "Casa"** bloquea horarios; "Trabajo" y "Calendario" no cuentan.
-5. PR de `dia-5-agenda` contra `main`, borrar ramas `dia-4-derivacion` y `dia-5-agenda` tras el merge.
+### Cierre del Día 5
+Probado en vivo el 3 de noviembre: lectura de "Casa", `/reservar` (evento con alertas + confirmación por WhatsApp entregada), ventana de 24 h (fallo 131047 detectado y reportado) y nota de sesión reservada para Claude.
+1. **Merge del PR #7** y borrar las ramas `dia-4-derivacion` y `dia-5-agenda` (Eduardo autoriza).
+2. **Recordatorio por WhatsApp en vivo:** quedaron dos sesiones de prueba el 3/11 a las 3 y 4 PM; con el servidor encendido llegan a las 2:50 y 3:50. Confirmar que llegó y borrar los eventos.
+3. **Plantilla de WhatsApp** (opcional, recomendada antes de producción) para recordatorios fuera de la ventana de 24 h: WhatsApp Manager, categoría Utilidad, español (México), cuerpo con `{{1}}` = la hora; poner su nombre en `WHATSAPP_PLANTILLA_RECORDATORIO`.
 
 ### Días 6–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
