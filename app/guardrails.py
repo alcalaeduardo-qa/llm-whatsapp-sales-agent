@@ -72,6 +72,17 @@ _CRISIS_DEBIL = re.compile(
 )
 
 
+# Frases con las que Sofía le promete a la persona que Eduardo la contactará
+_PROMESA_DERIVAR = re.compile(
+    r"eduardo te (escribira|contactara|buscara|respondera)|le paso tu caso|le (aviso|comento) a eduardo|"
+    r"eduardo se pondra en contacto|eduardo te va a escribir",
+)
+
+
+def promete_derivar(texto: str) -> bool:
+    return bool(_PROMESA_DERIVAR.search(normalizar(texto)))
+
+
 def crisis_explicita(texto: str) -> bool:
     return bool(_CRISIS_FUERTE.search(normalizar(texto)))
 
@@ -108,6 +119,8 @@ _SIGNOS = [
     ("punto y coma", re.compile(r";")),
 ]
 _MARKDOWN = re.compile(r"\*|__|`|^\s*(#{1,6}\s|[•]\s?|\d+[.)]\s)", re.MULTILINE)
+# El prompt pide no asumir el género; los evals mostraron "juntos/juntas" en 38 % de las conversaciones
+_GENERO_PROHIBIDO = re.compile(r"\b(juntos|juntas)\b", re.IGNORECASE)
 _PALABRAS_PROHIBIDAS = re.compile(
     r"\b(terapi\w*|terapeut\w*|psicolog[oa]s?|pacientes?|tratamientos?|diagnostic\w*"
     r"|trastornos?|patologi\w*|clinic[oa]s?|consultas? psicologicas?)\b"
@@ -130,6 +143,11 @@ def _montos_invalidos(texto: str) -> list[str]:
     return invalidos
 
 
+def es_problema_de_largo(problema: str) -> bool:
+    """Reglas de estilo que no justifican mandar el respaldo (ver main.generar_validada)."""
+    return problema.startswith(("demasiado largo", "demasiados párrafos"))
+
+
 def validar_salida(texto: str) -> list[str]:
     """Lista de reglas incumplidas; vacía si el mensaje puede enviarse."""
     if not texto.strip():
@@ -143,6 +161,9 @@ def validar_salida(texto: str) -> list[str]:
         problemas.append("se hace pasar por Eduardo")
     if MARCA_AUDIO.strip().lower() in sin_urls.lower():
         problemas.append("marca interna de nota de voz")
+    genero = _GENERO_PROHIBIDO.search(sin_urls)
+    if genero:
+        problemas.append(f"asume género con '{genero.group(0)}' (usa una frase neutra como en conjunto)")
 
     normal = normalizar(sin_urls)
     palabras = sorted({m.group(0) for m in _PALABRAS_PROHIBIDAS.finditer(normal)})

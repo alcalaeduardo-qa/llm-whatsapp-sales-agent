@@ -230,3 +230,27 @@ async def test_alerta_sin_configurar(monkeypatch, caplog):
     monkeypatch.setattr(config, "TELEGRAM_BOT_TOKEN", "")
     assert await telegram.alertar("prueba") is False
     assert "ALERTA sin Telegram configurado" in caplog.text
+
+
+# --- Arreglos tras la primera corrida de evals ---------------------------------------------------
+@pytest.mark.parametrize("texto", ["Podemos verlo juntos.", "Lo miramos JUNTAS con calma."])
+def test_juntos_se_rechaza(texto):
+    assert any(p.startswith("asume género") for p in validar_salida(texto))
+
+
+def test_en_conjunto_si_se_permite():
+    assert validar_salida("Lo podemos mirar en conjunto.") == []
+
+
+@pytest.mark.parametrize(
+    "texto, promete",
+    [
+        ("Le paso tu caso para que te escriba personalmente.", True),
+        ("Eduardo te escribirá personalmente a la brevedad.", True),
+        ("Le aviso a Eduardo y te busca hoy.", True),
+        ("Me mandas tu comprobante y Eduardo te confirma tu sesión.", False),  # cierre normal
+        ("Eduardo da las sesiones personalmente.", False),
+    ],
+)
+def test_promete_derivar(texto, promete):
+    assert guardrails.promete_derivar(texto) is promete

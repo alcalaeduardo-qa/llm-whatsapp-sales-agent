@@ -85,7 +85,7 @@ class ClaudeFalso:
         self.peticiones: list[dict] = []
         self.clasificaciones: list[dict] = []
         self.respuestas: list[list[dict]] = [[{"type": "text", "text": SALUDO}]]
-        self.veredicto = "NO"
+        self.veredicto = "NORMAL"
         self.clasificador_falla = False
         self.clasificador_stop = "end_turn"
         self.stop_reason = "end_turn"

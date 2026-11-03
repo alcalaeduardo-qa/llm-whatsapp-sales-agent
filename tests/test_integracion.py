@@ -47,7 +47,10 @@ def test_segundo_mensaje_lleva_historial(entorno):
     assert [m["role"] for m in mensajes] == ["user", "assistant", "user"]
     assert mensajes[-1]["content"] == "Tengo ansiedad"
     # El clasificador ve los últimos mensajes de la persona, no solo el actual
-    assert entorno["claude"].clasificaciones[1]["messages"][0]["content"] == "Hola\nTengo ansiedad"
+    assert (
+        entorno["claude"].clasificaciones[1]["messages"][0]["content"]
+        == "<mensajes>\nHola\nTengo ansiedad\n</mensajes>"
+    )
 
 
 def test_evento_de_estado_no_llama_a_nadie(entorno):
@@ -110,7 +113,7 @@ def test_crisis_explicita_respuesta_fija_pausa_y_alerta(entorno):
 
 
 def test_crisis_encubierta_la_detecta_el_clasificador(entorno):
-    entorno["claude"].veredicto = "SI"
+    entorno["claude"].veredicto = "RIESGO"
     post_firmado(entorno["http"], payload(texto="Ya les escribí una carta a todos para despedirme"))
     assert entorno["claude"].peticiones == []
     assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_CRISIS]
@@ -206,3 +209,41 @@ def test_clasificador_cortado_no_cuenta_como_no(entorno, texto, crisis):
     entorno["claude"].clasificador_stop = "max_tokens"
     post_firmado(entorno["http"], payload(texto=texto))
     assert (entorno["store"].pausadas != {}) is crisis
+
+
+# --- Clasificador: etiquetas RIESGO/NORMAL (bug encontrado por los evals) ----------------------------
+def test_clasificador_recibe_los_mensajes_como_datos(entorno):
+    post_firmado(entorno["http"], payload(texto="¿Eres un bot?"))
+    contenido = entorno["claude"].clasificaciones[0]["messages"][0]["content"]
+    assert contenido.startswith("<mensajes>") and contenido.endswith("</mensajes>")
+
+
+@pytest.mark.parametrize("veredicto", ["Sí", "SI", "No sé"])
+def test_respuesta_que_no_es_etiqueta_no_cuenta_como_crisis(entorno, veredicto):
+    """Con SI/NO, el modelo contestaba la pregunta de la persona ("¿hablo con una IA?" → "Sí")."""
+    entorno["claude"].veredicto = veredicto
+    post_firmado(entorno["http"], payload(texto="Dime la verdad, ¿estoy hablando con una inteligencia artificial?"))
+    assert entorno["store"].pausadas == {}  # sin señales de riesgo: sigue la conversación normal
+    assert len(entorno["claude"].peticiones) == 1
+
+
+def test_respuesta_que_no_es_etiqueta_con_senal_ambigua_si_es_crisis(entorno):
+    entorno["claude"].veredicto = "Sí"
+    post_firmado(entorno["http"], payload(texto="Ya no puedo más con todo esto"))
+    assert entorno["store"].pausadas == {"5214931234567": "crisis"}
+
+
+def test_respuesta_solo_larga_se_envia_sin_respaldo(entorno):
+    """Caso del eval: una propuesta de 1140 caracteres dos veces terminaba en respaldo y derivaba."""
+    larga = "Te cuento cómo funciona la sesión con Eduardo. " * 30
+    entorno["claude"].respuestas = [_texto(larga)]
+    post_firmado(entorno["http"], payload())
+    assert len(entorno["claude"].peticiones) == 2  # se reintentó una vez
+    assert _enviados(entorno["meta"]) == [larga.strip()]
+    assert entorno["store"].humano == {}  # no derivó
+
+
+def test_larga_y_con_otro_problema_si_usa_respaldo(entorno):
+    entorno["claude"].respuestas = [_texto("Esto es terapia. " * 80)]
+    post_firmado(entorno["http"], payload())
+    assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_RESPALDO]

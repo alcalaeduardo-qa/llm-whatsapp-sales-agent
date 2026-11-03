@@ -6,3 +6,4 @@ freezegun
 ruff
 pre-commit
 watchfiles
+deepeval

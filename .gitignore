@@ -8,3 +8,7 @@ htmlcov/
 
 # Prompt real de Sofía (propiedad del negocio); en el repo va prompts/sofia.example.md
 prompts/sofia.md
+
+# Evals: transcripciones completas y caché de DeepEval (solo locales)
+evals/resultados/
+.deepeval/

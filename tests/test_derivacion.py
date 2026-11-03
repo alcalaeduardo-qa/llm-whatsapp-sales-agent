@@ -368,3 +368,11 @@ def test_conversacion_nueva_no_lleva_nota_de_devuelta(entorno):
 
 def test_sofia_no_puede_hacerse_pasar_por_eduardo():
     assert "se hace pasar por Eduardo" in guardrails.validar_salida("[Eduardo] Claro, te veo mañana")
+
+
+def test_si_promete_que_eduardo_escribira_se_deriva_aunque_no_use_la_herramienta(entorno):
+    """Caso del eval: dijo "le paso tu caso" sin llamar a la herramienta y la alerta nunca llegaba."""
+    entorno["claude"].respuestas = [_texto("Entiendo. Le paso tu caso a Eduardo para que te escriba personalmente.")]
+    post_firmado(entorno["http"], payload(texto="¿Eduardo atiende adolescentes?"))
+    assert entorno["store"].humano == {TEL: "otro"}
+    assert "Derivación de +" in _alertas(entorno["telegram"])[0]
