@@ -38,6 +38,12 @@ RESPUESTA_RESERVA = (
     "Es una hora con Eduardo por escrito y audios en vivo, sin cámara. Si necesitas cambiarla, escríbeme por aquí."
 )
 
+# {minutos}: 10, {hora}: "2 PM"
+RESPUESTA_RECORDATORIO = (
+    "Hola, te recuerdo que tu sesión con Eduardo empieza en {minutos} minutos, a las {hora} hora México. "
+    "Busca un lugar tranquilo donde puedas escribir y mandar audios con calma."
+)
+
 RESPUESTA_RESPALDO = "Gracias por escribirme. Eduardo te escribirá personalmente a la brevedad para darte seguimiento."
 
 

@@ -49,7 +49,8 @@
 Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones de 1 hora; nunca se aparta sin pago. Pago primero, Eduardo valida y ordena la reserva.
 - [x] Leer ocupado/libre de iCloud por CalDAV y ofrecer solo horarios libres (respaldo: `calcular_horarios`). Respeta eventos marcados como Libre.
 - [x] `/reservar <tel> <día/mes> <hora>` en Telegram (o contestando a la alerta): verifica que siga libre, crea el evento de 1 h y confirma a la persona por WhatsApp.
-- [ ] Recordatorios antes de la sesión (pendiente de decidir; requiere plantilla aprobada si pasan más de 24 h de la ventana de WhatsApp).
+- [x] Alertas en el calendario de Eduardo: 10 minutos antes y a la hora (VALARM en el evento).
+- [x] Recordatorio por WhatsApp a la persona 10 minutos antes (revisión cada minuto, registro en `recordatorios` para no repetir; plantilla aprobada si pasaron más de 24 h, si no aviso a Eduardo).
 
 ## Día 6 — Audio
 - [ ] Descargar media de Graph API → transcribir con Groq `whisper-large-v3-turbo`.

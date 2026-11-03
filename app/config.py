@@ -36,6 +36,12 @@ ICLOUD_USUARIO = os.getenv("ICLOUD_USUARIO", "")
 ICLOUD_PASSWORD_APP = os.getenv("ICLOUD_PASSWORD_APP", "")
 ICLOUD_CALENDARIO = os.getenv("ICLOUD_CALENDARIO", "Casa")
 
+# Recordatorio por WhatsApp a la persona antes de su sesión. Si pasaron más de 24 h desde su último
+# mensaje, WhatsApp solo acepta una plantilla aprobada (cuerpo con un parámetro: la hora).
+RECORDATORIO_MINUTOS_ANTES = int(os.getenv("RECORDATORIO_MINUTOS_ANTES", "10"))
+WHATSAPP_PLANTILLA_RECORDATORIO = os.getenv("WHATSAPP_PLANTILLA_RECORDATORIO", "")
+WHATSAPP_PLANTILLA_IDIOMA = os.getenv("WHATSAPP_PLANTILLA_IDIOMA", "es_MX")
+
 # Guardrails
 CRISIS_LLM = os.getenv("CRISIS_LLM", "true").lower() == "true"
 CLAUDE_MODEL_CLASIFICADOR = os.getenv("CLAUDE_MODEL_CLASIFICADOR", CLAUDE_MODEL)

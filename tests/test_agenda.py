@@ -165,6 +165,10 @@ async def test_reservar_crea_evento_de_una_hora(cal):
     assert creado.decoded("DTSTART") == _mx(2, 14) and creado.decoded("DTEND") == _mx(2, 15)
     assert str(creado["SUMMARY"]) == f"Sesión +{TEL}"
     assert "aprobación de Eduardo" in str(creado["DESCRIPTION"])
+    # Alertas para Eduardo: 10 minutos antes y a la hora
+    alarmas = creado.walk("VALARM")
+    assert [a.decoded("TRIGGER") for a in alarmas] == [timedelta(minutes=-10), timedelta(0)]
+    assert all(str(a["ACTION"]) == "DISPLAY" for a in alarmas)
 
 
 @pytest.mark.anyio

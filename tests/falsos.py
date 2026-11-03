@@ -26,6 +26,7 @@ class StoreFalso:
         self.pausadas: dict[str, str] = {}
         self.humano: dict[str, str] = {}
         self.motivos: dict[str, str] = {}  # como motivo_humano: se conserva tras /reanudar
+        self.recordatorios: set[str] = set()
 
     async def registrar_entrante(self, telefono, contenido, wa_message_id):
         if wa_message_id in self.ids:
@@ -60,6 +61,12 @@ class StoreFalso:
     async def reanudar(self, telefono):
         self.pausadas.pop(telefono, None)
         self.humano.pop(telefono, None)
+        return True
+
+    async def marcar_recordatorio(self, evento_uid, telefono, inicio):
+        if evento_uid in self.recordatorios:
+            return False
+        self.recordatorios.add(evento_uid)
         return True
 
     def respuestas_a(self, telefono):

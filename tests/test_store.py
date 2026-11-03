@@ -198,3 +198,49 @@ async def test_estado_tolera_fallas_de_la_base(monkeypatch, caplog):
     assert await store.activar_humano("521", "comprobante") is False
     assert await store.reanudar("521") is False
     assert "No se pudo pausar la venta" in caplog.text
+
+
+# --- recordatorios ---------------------------------------------------------------------
+class SupabaseRecordatorios:
+    def __init__(self, error=None):
+        self.filas: list[dict] = []
+        self.error = error
+
+    def table(self, nombre):
+        assert nombre == "recordatorios"
+        return self
+
+    def insert(self, fila):
+        self._fila = fila
+        return self
+
+    def execute(self):
+        if self.error:
+            raise self.error
+        if any(f["evento_uid"] == self._fila["evento_uid"] for f in self.filas):
+            raise Exception("{'code': '23505', 'message': 'duplicate key'}")
+        self.filas.append(self._fila)
+        return SimpleNamespace(data=[self._fila])
+
+
+@pytest.mark.anyio
+async def test_marcar_recordatorio_una_sola_vez(monkeypatch):
+    from datetime import datetime
+
+    from app import config
+
+    db = SupabaseRecordatorios()
+    monkeypatch.setattr(store, "_cliente", lambda: db)
+    inicio = datetime(2026, 11, 2, 14, tzinfo=config.ZONA_MX)
+    assert await store.marcar_recordatorio("uid-1", "521", inicio) is True
+    assert await store.marcar_recordatorio("uid-1", "521", inicio) is False
+    assert db.filas == [{"evento_uid": "uid-1", "telefono": "521", "inicio": "2026-11-02T14:00:00-06:00"}]
+
+
+@pytest.mark.anyio
+async def test_marcar_recordatorio_propaga_otros_errores(monkeypatch):
+    from datetime import datetime
+
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseRecordatorios(error=RuntimeError("caído")))
+    with pytest.raises(RuntimeError):
+        await store.marcar_recordatorio("uid-1", "521", datetime(2026, 11, 2, 14))

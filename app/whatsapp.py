@@ -56,14 +56,28 @@ async def descargar_media(media_id: str) -> tuple[bytes, str]:
 
 
 async def enviar_texto(destino: str, texto: str) -> None:
+    await _enviar({"messaging_product": "whatsapp", "to": destino, "type": "text", "text": {"body": texto}})
+
+
+async def enviar_plantilla(destino: str, nombre: str, parametros: list[str]) -> None:
+    """Plantilla aprobada por Meta: lo único que se puede enviar pasadas 24 h del último mensaje de la persona."""
+    await _enviar(
+        {
+            "messaging_product": "whatsapp",
+            "to": destino,
+            "type": "template",
+            "template": {
+                "name": nombre,
+                "language": {"code": config.WHATSAPP_PLANTILLA_IDIOMA},
+                "components": [{"type": "body", "parameters": [{"type": "text", "text": p} for p in parametros]}],
+            },
+        }
+    )
+
+
+async def _enviar(data: dict) -> None:
     url = f"https://graph.facebook.com/{config.GRAPH_API_VERSION}/{config.PHONE_NUMBER_ID}/messages"
     headers = {"Authorization": f"Bearer {config.WHATSAPP_TOKEN}"}
-    data = {
-        "messaging_product": "whatsapp",
-        "to": destino,
-        "type": "text",
-        "text": {"body": texto},
-    }
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.post(url, headers=headers, json=data)
     if r.is_error:

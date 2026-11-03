@@ -6,6 +6,7 @@ lo ordena desde Telegram (/reservar), después de validar el pago.
 
 import asyncio
 import logging
+import re
 import time as reloj
 import uuid
 from datetime import datetime, time, timedelta
@@ -21,6 +22,8 @@ logger = logging.getLogger("sofia.calendario")
 URL_ICLOUD = "https://caldav.icloud.com"
 CACHE_SEGUNDOS = 120  # iCloud es lento; la disponibilidad no cambia cada segundo
 DIAS_A_CONSULTAR = 7
+ALERTAS_MINUTOS_ANTES = (10, 0)
+_TITULO_SESION = re.compile(r"^Sesión \+(\d{10,15})$")
 
 Intervalo = tuple[datetime, datetime]
 _cache: dict = {"vence": 0.0, "dia": None, "ocupados": []}
@@ -81,6 +84,22 @@ async def ocupados(desde: datetime, usar_cache: bool = True) -> list[Intervalo]:
     return resultado
 
 
+def _leer_sesiones(desde: datetime, hasta: datetime) -> list[tuple[str, datetime, str]]:
+    sesiones = []
+    for e in _calendario().search(event=True, start=desde, end=hasta, expand=True):
+        componente = e.icalendar_component
+        encontrado = _TITULO_SESION.match(str(componente.get("SUMMARY", "")))
+        if encontrado:
+            inicio = _a_hora_mx(componente.decoded("DTSTART"))
+            sesiones.append((str(componente.get("UID")), inicio, encontrado.group(1)))
+    return sorted(sesiones, key=lambda s: s[1])
+
+
+async def sesiones_entre(desde: datetime, hasta: datetime) -> list[tuple[str, datetime, str]]:
+    """(uid, inicio, teléfono) de las sesiones creadas por /reservar (título "Sesión +teléfono")."""
+    return await asyncio.to_thread(_leer_sesiones, desde, hasta)
+
+
 def invalidar_cache() -> None:
     _cache.update(vence=0.0, dia=None, ocupados=[])
 
@@ -107,6 +126,13 @@ def _crear_evento(inicio: datetime, fin: datetime, telefono: str) -> None:
     evento.add("dtend", fin)
     evento.add("summary", f"Sesión +{telefono}")
     evento.add("description", f"Reservada por Sofía tras la aprobación de Eduardo. WhatsApp +{telefono}")
+    # Alertas en el iPhone de Eduardo: 10 minutos antes y a la hora de la sesión
+    for minutos_antes in ALERTAS_MINUTOS_ANTES:
+        alarma = icalendar.Alarm()
+        alarma.add("action", "DISPLAY")
+        alarma.add("description", f"Sesión con +{telefono}")
+        alarma.add("trigger", timedelta(minutes=-minutos_antes))
+        evento.add_component(alarma)
     calendario_ics.add_component(evento)
     _calendario().add_event(calendario_ics.to_ical().decode("utf-8"))
 

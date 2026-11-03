@@ -1,16 +1,30 @@
+import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from app import comandos, config, guardrails, llm, store, telegram, whatsapp
+from app import calendario, comandos, config, guardrails, llm, recordatorios, store, telegram, whatsapp
 from app.text import huella, normalizar_numero
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("sofia")
 
-app = FastAPI(title="Sofía · WhatsApp sales agent")
+
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI):
+    """Con el calendario configurado, revisa cada minuto si toca mandar recordatorios."""
+    tarea = asyncio.create_task(recordatorios.bucle()) if calendario.configurado() else None
+    if tarea is None:
+        logger.warning("iCloud sin configurar: no se enviarán recordatorios de sesión")
+    yield
+    if tarea:
+        tarea.cancel()
+
+
+app = FastAPI(title="Sofía · WhatsApp sales agent", lifespan=ciclo_de_vida)
 
 
 def _desc(texto: str) -> str:

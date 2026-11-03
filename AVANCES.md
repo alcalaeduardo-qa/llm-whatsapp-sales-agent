@@ -22,13 +22,13 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 2 | Tests base (pytest, ruff, pre-commit, respx, freezegun) | ✅ en `main` (PRs #2 y #4) |
 | 3 | Guardrails: crisis antes del LLM + validador de salida | ✅ en `main` (PRs #3 y #4) |
 | 4 | Derivación a Eduardo, modo humano, comandos de Telegram | ✅ en `main` (PRs #5 y #6), **probado en vivo** |
-| 5 | Agenda real con iCloud | 🟡 rama `dia-5-agenda` en GitHub (sin PR), falta probar con iCloud y los recordatorios |
+| 5 | Agenda real con iCloud | 🟡 código completo en la rama `dia-5-agenda` (sin PR); iCloud conectado; tabla `recordatorios` creada; falta la prueba en vivo de `/reservar` |
 | 6 | Audio (transcripción con Groq) | ⬜ |
 | 7–8 | Evals + red-teaming | ⬜ |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **270 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **285 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
@@ -76,7 +76,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 ### Base de datos (Supabase)
 - `mensajes`: `telefono, rol (user|assistant), contenido, wa_message_id (único), creado_en`. Los mensajes que Eduardo manda desde Telegram se guardan con prefijo `[Eduardo] `.
 - `conversaciones`: `telefono (PK), venta_pausada, motivo_pausa, pausada_en, humano_activo, motivo_humano, humano_desde, actualizado_en`.
-- Migraciones aplicadas en producción: `dia3_conversaciones`, `dia4_modo_humano`. El Día 5 no requiere cambios de esquema.
+- Migraciones aplicadas en producción: `dia3_conversaciones`, `dia4_modo_humano`, `dia5_recordatorios` (tabla `recordatorios`: evento_uid PK, telefono, inicio, enviado_en).
 
 ### Comandos de Telegram (solo desde `TELEGRAM_CHAT_ID`)
 - Contestar (reply) a una alerta → el texto le llega a la persona por WhatsApp y Sofía queda en silencio.
@@ -92,7 +92,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 
 - Horario: sesiones de **1 hora**, inicios de **2 a 7 PM hora México, los 7 días** (fines de semana incluidos, a propósito).
 - **Nunca se aparta un horario sin pago.** Flujo: Sofía ofrece horarios libres → la persona paga y manda comprobante → derivación → Eduardo valida → **Eduardo ordena `/reservar`** → Sofía crea el evento y confirma por WhatsApp. La IA nunca reserva por su cuenta (se descartó la tool `apartar_horario` y `/confirmar` del plan).
-- Calendario: el del iPhone, **iCloud, calendario "Casa"** (no Google Calendar).
+- Calendario: el del iPhone, **iCloud, calendario "Casa"** (no Google Calendar). **Solo "Casa"** bloquea horarios; los otros calendarios de iCloud ("Trabajo", "Calendario") se ignoran a propósito.
 - **Recordatorios (pendiente de implementar):**
   - A la persona: WhatsApp **10 minutos antes** de la sesión.
   - A Eduardo: alertas del calendario **10 minutos antes y a la hora** de la sesión (VALARM en el evento que crea `/reservar`).
@@ -147,10 +147,11 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 ## 9. Qué falta (en orden)
 
 ### Terminar el Día 5
-1. **Credenciales de iCloud:** Eduardo crea una contraseña de app en account.apple.com → *Inicio de sesión y seguridad → Contraseñas de apps* y llena `ICLOUD_USUARIO` / `ICLOUD_PASSWORD_APP` en `.env`.
-2. **Prueba de solo lectura contra iCloud:** confirmar que `principal().calendar(name="Casa")` encuentra el calendario (el nombre puede variar) y que los ocupados de 7 días coinciden con el iPhone. Luego un `/reservar` real en un horario de prueba y borrarlo del iPhone.
-3. **Alarmas del evento para Eduardo:** en `calendario._crear_evento` agregar dos `VALARM` (`TRIGGER:-PT10M` y `TRIGGER:PT0M`, `ACTION:DISPLAY`) + test.
-4. **Recordatorio a la persona 10 min antes:** tarea programada (p. ej. APScheduler en el proceso, o revisión periódica del calendario buscando eventos "Sesión +tel" que empiezan en 10 min) que mande WhatsApp. Si pasaron más de 24 h desde el último mensaje de la persona, WhatsApp exige **plantilla aprobada** por Meta: crearla y usarla en ese caso. Debe sobrevivir reinicios (no guardar estado solo en memoria; ideal leer del calendario o de una tabla).
+Hecho el 2 de noviembre: credenciales de iCloud en `.env` (lectura probada: encuentra el calendario "Casa" y sus ocupados), alarmas del evento (10 min antes y a la hora) y recordatorio por WhatsApp a la persona (`app/recordatorios.py`, arranca con el servidor si iCloud está configurado).
+1. ~~Migración en Supabase~~: tabla `recordatorios` creada el 2 de noviembre (migración `dia5_recordatorios`).
+2. **Prueba en vivo de `/reservar`** en un horario de prueba, revisar que el evento salga en el iPhone con sus dos alertas, y borrarlo.
+3. **Plantilla de WhatsApp** para recordatorios fuera de la ventana de 24 h: crearla en WhatsApp Manager (categoría Utilidad, idioma español México, cuerpo con `{{1}}` = la hora) y poner su nombre en `WHATSAPP_PLANTILLA_RECORDATORIO`. Sin plantilla, si la persona no escribió en 24 h, Sofía le avisa a Eduardo para que le escriba él.
+4. ~~Pregunta abierta~~: decidido, **solo el calendario "Casa"** bloquea horarios; "Trabajo" y "Calendario" no cuentan.
 5. PR de `dia-5-agenda` contra `main`, borrar ramas `dia-4-derivacion` y `dia-5-agenda` tras el merge.
 
 ### Días 6–10

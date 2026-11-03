@@ -144,3 +144,20 @@ async def activar_humano(telefono: str, motivo: str) -> bool:
 async def reanudar(telefono: str) -> bool:
     """Devuelve la conversación a Sofía y quita cualquier pausa."""
     return await _actualizar(telefono, {"humano_activo": False, "venta_pausada": False}, "reanudar")
+
+
+def _marcar_recordatorio(evento_uid: str, telefono: str, inicio: str) -> bool:
+    try:
+        _cliente().table("recordatorios").insert(
+            {"evento_uid": evento_uid, "telefono": telefono, "inicio": inicio}
+        ).execute()
+        return True
+    except Exception as e:
+        if _es_duplicado(e):
+            return False
+        raise
+
+
+async def marcar_recordatorio(evento_uid: str, telefono: str, inicio: datetime) -> bool:
+    """Registra el recordatorio antes de enviarlo. False si ya se había enviado (otro ciclo o un reinicio)."""
+    return await asyncio.to_thread(_marcar_recordatorio, evento_uid, telefono, inicio.isoformat())
