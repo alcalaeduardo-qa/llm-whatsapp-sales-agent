@@ -331,3 +331,12 @@ def test_la_ia_recibe_los_horarios_del_calendario(entorno, monkeypatch):
     monkeypatch.setattr(calendario, "opciones_horario", opciones)
     post_firmado(entorno["http"], payload(texto="¿Qué horarios tienes?"))
     assert "mañana lunes 2 de noviembre a las 5 PM" in entorno["claude"].peticiones[0]["system"]
+
+
+def test_reservar_fuera_de_ventana_no_intenta_avisar(entorno, cal, telegram_listo, manana_2pm):
+    """Caso real: Meta aceptaba el aviso y luego lo marcaba fallido (131047) sin que Eduardo se enterara."""
+    entorno["store"].ventana = False
+    _orden(entorno, f"/reservar {TEL} {manana_2pm[0]} 14")
+    assert len(cal.creados) == 1  # la reserva sí se hace
+    assert entorno["meta"].call_count == 0
+    assert "No le avisé: su último mensaje fue hace más de 24 horas" in _alertas(entorno["telegram"])[0]

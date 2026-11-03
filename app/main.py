@@ -168,6 +168,17 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
         logger.exception("Error procesando %s %s", tipo, mensaje["id"])
 
 
+async def avisar_fallos(fallos: list[dict]) -> None:
+    """Meta acepta un envío y minutos después puede marcarlo fallido; Eduardo debe enterarse."""
+    for fallo in fallos:
+        logger.warning("Meta no entregó un mensaje a %s (código %s)", fallo["destino"], fallo["codigo"])
+        if fallo["codigo"] == whatsapp.FUERA_DE_VENTANA:
+            motivo = "su último mensaje fue hace más de 24 horas y WhatsApp solo permite plantillas aprobadas"
+        else:
+            motivo = f"código {fallo['codigo']}: {fallo['detalle']}"
+        await telegram.alertar(f"⚠️ WhatsApp no entregó un mensaje a +{fallo['destino']}: {motivo}. Escríbele tú.")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -197,6 +208,11 @@ async def recibir(request: Request, tareas: BackgroundTasks):
         body = json.loads(cuerpo)
     except ValueError:
         raise HTTPException(status_code=400, detail="JSON inválido") from None
+
+    fallos = whatsapp.extraer_fallos(body)
+    if fallos:
+        tareas.add_task(avisar_fallos, fallos)
+        return {"status": "fallo_reportado"}
 
     mensaje = whatsapp.extraer_mensaje(body)
     if mensaje is None:

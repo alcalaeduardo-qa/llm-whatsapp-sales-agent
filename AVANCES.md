@@ -28,7 +28,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ⬜ |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **285 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **302 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
@@ -140,6 +140,8 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - Windows formatea fechas en inglés: los días y meses se arman a mano (`scheduling.dia_y_fecha`), y las opciones de horario llevan día y fecha explícitos para que Claude no deduzca.
 - Tras `/reanudar`, Claude volvía a derivar al leer "quiero hablar con Eduardo" en el historial → mensajes de Eduardo con prefijo `[Eduardo]` y nota `NOTA_DEVUELTA` en el prompt.
 - En Git Bash, los heredocs con `\n` dentro de scripts de Python se convirtieron en saltos reales: para editar código usar el editor, no `sed`/heredocs con escapes. Los archivos deben quedar con fin de línea LF.
+- **Ventana de 24 h de WhatsApp:** fuera de ella Meta **acepta** el texto libre (200) y segundos después manda un estado `failed` con código **131047** por el webhook. Por eso: antes de mandar avisos de reserva o recordatorios se revisa el último mensaje de la persona (`store.en_ventana_de_whatsapp`), y cualquier estado `failed` se le reporta a Eduardo por Telegram (`main.avisar_fallos`).
+- Los tests tienen un candado (`tests/conftest.py`): si un test intenta usar el Supabase, el Claude o el iCloud reales, falla. Cada función nueva de `store` debe tener su doble en `StoreFalso`.
 - Meta manda los móviles de México como `521…`; para enviar se usa `52…` (`normalizar_numero`). En comandos, `numero_meta` hace lo inverso.
 
 ---

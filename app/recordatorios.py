@@ -43,24 +43,27 @@ async def enviar(telefono: str, inicio: datetime) -> None:
     hora = f"{inicio.strftime('%I').lstrip('0')} PM"
     texto = guardrails.RESPUESTA_RECORDATORIO.format(minutos=config.RECORDATORIO_MINUTOS_ANTES, hora=hora)
     destino = normalizar_numero(telefono)
-    try:
-        await whatsapp.enviar_texto(destino, texto)
-        await store.guardar_respuesta(telefono, texto)
-        return
-    except httpx.HTTPStatusError as e:
-        estado = e.response.status_code
+    # Fuera de la ventana de 24 h Meta acepta el texto libre y luego lo marca fallido: ni se intenta
+    if await store.en_ventana_de_whatsapp(telefono) is False:
+        motivo = "su último mensaje fue hace más de 24 horas"
+    else:
+        try:
+            await whatsapp.enviar_texto(destino, texto)
+            await store.guardar_respuesta(telefono, texto)
+            return
+        except httpx.HTTPStatusError as e:
+            motivo = f"Meta respondió {e.response.status_code}"
 
-    # Fuera de la ventana de 24 h WhatsApp solo acepta plantillas aprobadas
     if config.WHATSAPP_PLANTILLA_RECORDATORIO:
         try:
             await whatsapp.enviar_plantilla(destino, config.WHATSAPP_PLANTILLA_RECORDATORIO, [hora])
             await store.guardar_respuesta(telefono, texto)
             return
         except httpx.HTTPStatusError as e:
-            estado = e.response.status_code
+            motivo = f"la plantilla falló, Meta respondió {e.response.status_code}"
     await telegram.alertar(
-        f"⏰ No pude mandarle el recordatorio a +{telefono} (sesión a las {hora}, Meta respondió {estado}). "
-        "Si pasaron más de 24 horas desde su último mensaje, WhatsApp exige una plantilla aprobada. Escríbele tú."
+        f"⏰ No pude mandarle el recordatorio a +{telefono} (sesión a las {hora}): {motivo}. "
+        "Sin una plantilla aprobada WhatsApp no deja escribirle. Escríbele tú."
     )
 
 

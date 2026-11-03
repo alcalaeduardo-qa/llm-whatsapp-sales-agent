@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -10,6 +11,10 @@ logger = logging.getLogger("sofia.whatsapp")
 
 # Archivos que pueden ser un comprobante de pago
 TIPOS_MEDIA = {"image", "document"}
+
+# Ventana de servicio de WhatsApp (24 h), con 10 minutos de margen
+VENTANA = timedelta(hours=23, minutes=50)
+FUERA_DE_VENTANA = 131047
 
 
 def firma_valida(cuerpo: bytes, encabezado: str | None, secreto: str | None = None) -> bool:
@@ -41,6 +46,32 @@ def extraer_mensaje(body: dict) -> dict | None:
         "media_id": media.get("id") if media else None,
         "caption": media.get("caption") if media else None,
     }
+
+
+def extraer_fallos(body: dict) -> list[dict]:
+    """Estados "failed" que Meta manda después de aceptar un envío: {'destino','codigo','detalle'}."""
+    try:
+        estados = body["entry"][0]["changes"][0]["value"].get("statuses") or []
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return []
+    fallos = []
+    for estado in estados:
+        if estado.get("status") != "failed":
+            continue
+        error = (estado.get("errors") or [{}])[0]
+        fallos.append(
+            {
+                "destino": estado.get("recipient_id", "?"),
+                "codigo": error.get("code"),
+                "detalle": (error.get("error_data") or {}).get("details") or error.get("title", ""),
+            }
+        )
+    return fallos
+
+
+def dentro_de_ventana(ultimo_mensaje: datetime | None, ahora: datetime) -> bool:
+    """WhatsApp solo deja mandar texto libre hasta 24 h después del último mensaje de la persona."""
+    return ultimo_mensaje is not None and ahora - ultimo_mensaje < VENTANA
 
 
 async def descargar_media(media_id: str) -> tuple[bytes, str]:

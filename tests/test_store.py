@@ -244,3 +244,45 @@ async def test_marcar_recordatorio_propaga_otros_errores(monkeypatch):
     monkeypatch.setattr(store, "_cliente", lambda: SupabaseRecordatorios(error=RuntimeError("caído")))
     with pytest.raises(RuntimeError):
         await store.marcar_recordatorio("uid-1", "521", datetime(2026, 11, 2, 14))
+
+
+# --- ventana de 24 h -----------------------------------------------------------------------
+class SupabaseUltimo:
+    def __init__(self, filas=None, error=None):
+        self.filas, self.error = filas or [], error
+
+    def table(self, _nombre):
+        return self
+
+    def select(self, _c):
+        return self
+
+    def eq(self, _c, _v):
+        return self
+
+    def order(self, _c, desc=False):
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def execute(self):
+        if self.error:
+            raise self.error
+        return SimpleNamespace(data=self.filas)
+
+
+@pytest.mark.anyio
+async def test_ventana_de_whatsapp(monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    reciente = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    viejo = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseUltimo([{"creado_en": reciente}]))
+    assert await store.en_ventana_de_whatsapp("521") is True
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseUltimo([{"creado_en": viejo}]))
+    assert await store.en_ventana_de_whatsapp("521") is False
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseUltimo([]))
+    assert await store.en_ventana_de_whatsapp("521") is False  # nunca escribió
+    monkeypatch.setattr(store, "_cliente", lambda: SupabaseUltimo(error=RuntimeError("caído")))
+    assert await store.en_ventana_de_whatsapp("521") is None

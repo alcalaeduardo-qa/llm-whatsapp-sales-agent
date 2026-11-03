@@ -169,3 +169,109 @@ def test_el_servidor_arranca_el_bucle_solo_con_icloud(monkeypatch, configurado):
     with TestClient(main.app) as cliente:
         assert cliente.get("/health").json() == {"status": "ok"}
     assert arrancado == ([True] if configurado else [])
+
+
+# --- Ventana de 24 h de WhatsApp --------------------------------------------------------------
+@pytest.mark.parametrize(
+    "hace, dentro",
+    [(timedelta(hours=2), True), (timedelta(hours=23, minutes=49), True), (timedelta(hours=24), False)],
+)
+def test_dentro_de_ventana(hace, dentro):
+    from app import whatsapp
+
+    assert whatsapp.dentro_de_ventana(AHORA - hace, AHORA) is dentro
+
+
+def test_sin_mensajes_previos_esta_fuera_de_ventana():
+    from app import whatsapp
+
+    assert whatsapp.dentro_de_ventana(None, AHORA) is False
+
+
+@pytest.mark.anyio
+async def test_fuera_de_ventana_va_directo_a_la_plantilla(entorno, monkeypatch):
+    """Meta acepta el texto libre y luego lo marca fallido: fuera de ventana ni se intenta."""
+    monkeypatch.setattr(config, "WHATSAPP_PLANTILLA_RECORDATORIO", "recordatorio_sesion")
+    entorno["store"].ventana = False
+    await recordatorios.enviar(TEL, datetime(2026, 11, 2, 15, tzinfo=MX))
+    (envio,) = entorno["meta"].calls
+    assert json.loads(envio.request.content)["type"] == "template"
+
+
+@pytest.mark.anyio
+async def test_fuera_de_ventana_sin_plantilla_avisa_sin_intentar(entorno, monkeypatch):
+    monkeypatch.setattr(config, "WHATSAPP_PLANTILLA_RECORDATORIO", "")
+    entorno["store"].ventana = False
+    await recordatorios.enviar(TEL, datetime(2026, 11, 2, 15, tzinfo=MX))
+    assert entorno["meta"].call_count == 0
+    assert "su último mensaje fue hace más de 24 horas" in _alertas(entorno["telegram"])[0]
+
+
+@pytest.mark.anyio
+async def test_sin_poder_consultar_la_ventana_se_intenta_igual(entorno):
+    entorno["store"].ventana = None
+    await recordatorios.enviar(TEL, datetime(2026, 11, 2, 15, tzinfo=MX))
+    assert json.loads(entorno["meta"].calls[0].request.content)["type"] == "text"
+
+
+# --- Fallos que Meta reporta después por el webhook ------------------------------------------
+def _estado_fallido(codigo=131047, detalle="more than 24 hours have passed"):
+    return {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "statuses": [
+                                {
+                                    "status": "failed",
+                                    "recipient_id": "524931234567",
+                                    "errors": [{"code": codigo, "title": "Error", "error_data": {"details": detalle}}],
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_fallo_fuera_de_ventana_avisa_a_eduardo(entorno):
+    from tests.conftest import post_firmado
+
+    assert post_firmado(entorno["http"], _estado_fallido()).json() == {"status": "fallo_reportado"}
+    (alerta,) = _alertas(entorno["telegram"])
+    assert alerta.startswith("⚠️ WhatsApp no entregó un mensaje a +524931234567")
+    assert "más de 24 horas" in alerta
+
+
+def test_otro_fallo_muestra_codigo_y_detalle(entorno):
+    from tests.conftest import post_firmado
+
+    post_firmado(entorno["http"], _estado_fallido(131026, "Message undeliverable"))
+    assert "código 131026: Message undeliverable" in _alertas(entorno["telegram"])[0]
+
+
+def test_estados_normales_no_avisan(entorno):
+    from tests.conftest import post_firmado
+
+    for estado in ("sent", "delivered", "read"):
+        datos = {"entry": [{"changes": [{"value": {"statuses": [{"status": estado}]}}]}]}
+        assert post_firmado(entorno["http"], datos).json() == {"status": "ignorado"}
+    assert entorno["telegram"].call_count == 0
+
+
+@pytest.mark.parametrize("body", [{}, {"entry": []}, None, {"entry": [{"changes": [{"value": {"statuses": None}}]}]}])
+def test_extraer_fallos_tolera_cuerpos_raros(body):
+    from app import whatsapp
+
+    assert whatsapp.extraer_fallos(body) == []
+
+
+def test_fallo_sin_detalle_usa_el_titulo():
+    from app import whatsapp
+
+    estado = {"status": "failed", "errors": [{"code": 1, "title": "T"}]}
+    body = {"entry": [{"changes": [{"value": {"statuses": [estado]}}]}]}
+    assert whatsapp.extraer_fallos(body) == [{"destino": "?", "codigo": 1, "detalle": "T"}]

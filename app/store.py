@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 
 from app import config
+from app.whatsapp import dentro_de_ventana
 
 logger = logging.getLogger("sofia.store")
 
@@ -48,6 +49,35 @@ def _guardar_respuesta(telefono: str, contenido: str) -> None:
             "contenido": contenido,
         }
     ).execute()
+
+
+def _ultimo_mensaje_de(telefono: str) -> datetime | None:
+    resultado = (
+        _cliente()
+        .table("mensajes")
+        .select("creado_en")
+        .eq("telefono", telefono)
+        .eq("rol", "user")
+        .order("creado_en", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return datetime.fromisoformat(resultado.data[0]["creado_en"]) if resultado.data else None
+
+
+async def ultimo_mensaje_de(telefono: str) -> datetime | None:
+    """Cuándo escribió la persona por última vez (None si nunca). Lanza si la base falla."""
+    return await asyncio.to_thread(_ultimo_mensaje_de, telefono)
+
+
+async def en_ventana_de_whatsapp(telefono: str) -> bool | None:
+    """¿Se le puede mandar texto libre (escribió en las últimas 24 h)? None si no se pudo consultar."""
+    try:
+        ultimo = await ultimo_mensaje_de(telefono)
+    except Exception:
+        logger.exception("No se pudo consultar el último mensaje de la persona")
+        return None
+    return dentro_de_ventana(ultimo, datetime.now(UTC))
 
 
 def _obtener_historial(telefono: str, limite: int) -> list[dict]:

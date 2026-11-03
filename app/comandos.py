@@ -116,12 +116,18 @@ async def reservar(telefono: str, inicio: datetime) -> None:
 
     cuando = f"{dia_y_fecha(inicio.date())} a las {inicio.hour - 12} PM"
     texto = guardrails.RESPUESTA_RESERVA.format(cuando=cuando)
-    try:
-        await whatsapp.enviar_texto(normalizar_numero(telefono), texto)
-        await store.guardar_respuesta(telefono, texto)
-        aviso = "Le avisé por WhatsApp."
-    except httpx.HTTPStatusError as e:
-        aviso = f"⚠️ No pude avisarle por WhatsApp (Meta respondió {e.response.status_code}), escríbele tú."
+    if await store.en_ventana_de_whatsapp(telefono) is False:
+        aviso = (
+            "⚠️ No le avisé: su último mensaje fue hace más de 24 horas y WhatsApp ya no permite escribirle "
+            "texto libre. Escríbele tú por otro medio o pídele que mande un mensaje a Sofía."
+        )
+    else:
+        try:
+            await whatsapp.enviar_texto(normalizar_numero(telefono), texto)
+            await store.guardar_respuesta(telefono, texto)
+            aviso = "Le avisé por WhatsApp (si Meta no lo entrega, te aviso)."
+        except httpx.HTTPStatusError as e:
+            aviso = f"⚠️ No pude avisarle por WhatsApp (Meta respondió {e.response.status_code}), escríbele tú."
     await telegram.alertar(
         f"📅 Reservado en tu calendario {config.ICLOUD_CALENDARIO}: +{telefono}, {cuando} hora México. {aviso}"
     )
