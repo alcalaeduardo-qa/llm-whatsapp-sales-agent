@@ -67,6 +67,13 @@ class StoreFalso:
     async def en_ventana_de_whatsapp(self, telefono):
         return self.ventana
 
+    async def borrar_datos(self, telefono):
+        propios = [f for f in self.filas if f["telefono"] == telefono]
+        self.filas = [f for f in self.filas if f["telefono"] != telefono]
+        for estado in (self.pausadas, self.humano, self.motivos):
+            estado.pop(telefono, None)
+        return len(propios)
+
     async def marcar_recordatorio(self, evento_uid, telefono, inicio):
         if evento_uid in self.recordatorios:
             return False
