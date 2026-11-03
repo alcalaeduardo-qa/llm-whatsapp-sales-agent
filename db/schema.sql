@@ -49,3 +49,37 @@ create table if not exists public.recordatorios (
 );
 
 alter table public.recordatorios enable row level security;
+
+-- Día 9: retención de 90 días. Borra todo lo de las personas que llevan más de `dias` sin escribir
+-- (historial, estado y recordatorios). Devuelve cuántas personas y mensajes se borraron.
+create or replace function public.purgar_inactivos(dias integer default 90)
+returns table (personas integer, mensajes integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    corte timestamptz := now() - make_interval(days => dias);
+begin
+    drop table if exists inactivos;
+    create temporary table inactivos on commit drop as
+        select telefono from public.mensajes group by telefono having max(creado_en) < corte;
+
+    delete from public.recordatorios where telefono in (select telefono from inactivos);
+    delete from public.conversaciones
+        where telefono in (select telefono from inactivos)
+           or (actualizado_en < corte and telefono not in (select telefono from public.mensajes));
+    with borrados as (
+        delete from public.mensajes where telefono in (select telefono from inactivos) returning 1
+    )
+    select (select count(*) from inactivos)::integer, count(*)::integer into personas, mensajes from borrados;
+    return next;
+end;
+$$;
+
+-- Solo el backend (service_role) y pg_cron pueden ejecutarla
+revoke all on function public.purgar_inactivos(integer) from public, anon, authenticated;
+
+-- Todos los días a las 9:00 UTC (3 AM en México)
+create extension if not exists pg_cron;
+select cron.schedule('sofia-retencion-90-dias', '0 9 * * *', $$select public.purgar_inactivos(90)$$);

@@ -6,8 +6,8 @@
 **AI sales agent on WhatsApp with code-level guardrails and red-team evals.**
 
 [![CI](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-403%20passing-2ea44f)](tests)
-[![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-421%20passing-2ea44f)](tests)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-2ea44f)](pyproject.toml)
 [![Evals](https://img.shields.io/badge/evals-89.1%25%20pass-2ea44f)](evals/RESULTS.md)
 [![Red team](https://img.shields.io/badge/red--team-15%2F16-2ea44f)](evals/dataset/redteam.yaml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
@@ -72,6 +72,8 @@ flowchart LR
 - **Hora equivalente calculada en código** para 11 zonas (Latinoamérica, España y EE. UU., con horario de verano): Claude ya no hace cuentas de zonas horarias.
 - **Fallas silenciosas de Meta detectadas:** si un mensaje aceptado se marca como fallido, Eduardo recibe un aviso.
 - **Privacidad:** los logs guardan longitud y huella, no el contenido; el prompt de venta no se publica.
+- **BORRAR MIS DATOS:** la persona lo escribe o lo dice en una nota de voz y Sofía borra su historial, estado y recordatorios.
+- **Retención de 90 días:** una función de Postgres programada con `pg_cron` borra cada noche lo de quien lleva 90 días sin escribir.
 
 ### Evals y red-teaming
 
@@ -112,7 +114,7 @@ app/
   store.py           Supabase: mensajes, estado y recordatorios
 evals/               Dataset, métricas, jueces y reportes (DeepEval)
 docs/FMEA.md         Análisis de modos y efectos de falla
-tests/               403 tests (pytest, respx, freezegun)
+tests/               421 tests (pytest, respx, freezegun)
 db/schema.sql        Esquema de Supabase
 ```
 
@@ -145,7 +147,7 @@ En producción el prompt real se pasa en la variable `SOFIA_PROMPT`: nunca va de
 ### Comandos
 
 ```bash
-pytest                                   # 403 tests + cobertura (mínimo 80 %)
+pytest                                   # 421 tests + cobertura (mínimo 80 %)
 python -m evals.run                      # evals completos con juez (~2.5 USD)
 python -m evals.run --sin-juez           # solo checks deterministas (centavos)
 python -m evals.run --solo redteam       # una categoría, un id o un dataset
@@ -155,7 +157,7 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 ### Roadmap
 
 - [x] Webhook seguro, memoria e idempotencia
-- [x] Tests base (403, cobertura 98 %)
+- [x] Tests base (421, cobertura 99 %)
 - [x] Guardrails de crisis y validador de salida
 - [x] Derivación a Eduardo y modo humano por Telegram
 - [x] Agenda real con iCloud, reservas y recordatorios
@@ -165,7 +167,8 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 - [x] Docker: imagen multi-etapa verificada en el CI (arranca y responde `/health`)
 - [x] Hora equivalente calculada en código para otros países
 - [ ] Deploy en Railway
-- [ ] Métricas de costo y latencia, retención de datos a 90 días
+- [x] BORRAR MIS DATOS y retención de datos a 90 días
+- [ ] Métricas de costo y latencia
 
 ---
 
