@@ -221,9 +221,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             return
 
         historial = await store.obtener_historial(remitente)
-        recientes = [m["content"] for m in historial if m["role"] == "user"][-3:] or [texto]
-        if texto not in recientes:
-            recientes = [*recientes[-2:], texto]
+        recientes = guardrails.mensajes_para_crisis(historial, texto)
         # `actual=texto`: el último de la historia puede ser otro mensaje que llegó un instante después
         if await guardrails.detectar_crisis(recientes, actual=texto):
             logger.warning("Crisis detectada (msg %s)", referencia(wa_message_id))
