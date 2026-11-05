@@ -210,21 +210,3 @@ def _marcar_recordatorio(evento_uid: str, telefono: str, inicio: str) -> bool:
 async def marcar_recordatorio(evento_uid: str, telefono: str, inicio: datetime) -> bool:
     """Registra el recordatorio antes de enviarlo. False si ya se había enviado (otro ciclo o un reinicio)."""
     return await asyncio.to_thread(_marcar_recordatorio, evento_uid, telefono, inicio.isoformat())
-
-
-TABLAS_POR_PERSONA = ("mensajes", "conversaciones", "recordatorios")
-
-
-def _borrar_datos(telefono: str) -> int:
-    borrados = 0
-    for tabla in TABLAS_POR_PERSONA:
-        resultado = _cliente().table(tabla).delete().eq("telefono", telefono).execute()
-        if tabla == "mensajes":
-            borrados = len(resultado.data or [])
-    return borrados
-
-
-async def borrar_datos(telefono: str) -> int:
-    """Borra todo lo que hay de esta persona (historial, estado y recordatorios). Devuelve cuántos
-    mensajes había. Lanza si la base falla: quien llama debe avisar que no se pudo."""
-    return await asyncio.to_thread(_borrar_datos, telefono)

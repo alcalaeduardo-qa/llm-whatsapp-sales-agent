@@ -20,18 +20,19 @@ def sin_aviso(entorno, monkeypatch):
     return entorno
 
 
-def test_la_primera_respuesta_lleva_el_enlace_y_el_comando_de_borrado(sin_aviso):
+def test_la_primera_respuesta_lleva_el_enlace_y_el_aviso_de_borrado(sin_aviso):
     post_firmado(sin_aviso["http"], payload(texto="Hola", wa_id="w1"))
 
     (enviado,) = _enviados(sin_aviso["meta"])
     assert enviado.startswith(SALUDO)
     assert URL in enviado
-    assert "BORRAR MIS DATOS" in enviado
+    assert "90 días" in enviado and "sanandoalmaa@gmail.com" in enviado
 
 
-def test_el_comando_del_aviso_es_el_que_borra_de_verdad():
-    assert guardrails.es_borrar_mis_datos("BORRAR MIS DATOS")
-    assert "BORRAR MIS DATOS" in guardrails.AVISO_PRIVACIDAD
+def test_el_aviso_dice_cuando_se_borra_la_conversacion_y_como_pedirlo_antes():
+    assert "90 días" in guardrails.AVISO_PRIVACIDAD
+    assert "sanandoalmaa@gmail.com" in guardrails.AVISO_PRIVACIDAD
+    assert "BORRAR MIS DATOS" not in guardrails.AVISO_PRIVACIDAD  # el comando ya no existe
 
 
 def test_el_aviso_se_manda_una_sola_vez(sin_aviso):
@@ -66,11 +67,3 @@ def test_si_no_se_pudo_enviar_el_aviso_queda_pendiente(sin_aviso):
     post_firmado(sin_aviso["http"], payload(texto="Hola", wa_id="w1"))
 
     assert sin_aviso["store"].avisados == []
-
-
-def test_quien_borra_sus_datos_recibe_el_aviso_otra_vez(sin_aviso):
-    post_firmado(sin_aviso["http"], payload(texto="Hola", wa_id="w1"))
-    post_firmado(sin_aviso["http"], payload(texto="BORRAR MIS DATOS", wa_id="w2"))
-    post_firmado(sin_aviso["http"], payload(texto="Hola de nuevo", wa_id="w3"))
-
-    assert URL in _enviados(sin_aviso["meta"])[-1]

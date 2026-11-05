@@ -1,6 +1,6 @@
 # Política de privacidad
 
-Última actualización: 4 de noviembre de 2026
+Última actualización: 5 de noviembre de 2026
 
 Esta política aplica al asistente de WhatsApp de **Sanando el Alma**. El asistente, Sofía, usa inteligencia artificial.
 
@@ -42,9 +42,9 @@ También guardamos métricas de operación, como el tiempo de respuesta y el cos
 
 ## Tus derechos
 
-Para borrar tu historial en cualquier momento, escribe **BORRAR MIS DATOS** en WhatsApp. Se borran tu conversación, su estado y tus recordatorios. Si tienes una sesión agendada, el evento sigue en el calendario de Eduardo hasta que pidas eliminarlo.
+Tu conversación se borra sola después de 90 días sin actividad.
 
-También puedes pedir acceso, corrección o eliminación de tus datos en **sanandoalmaa@gmail.com**. Respondemos en un plazo máximo de 20 días hábiles.
+Para que se borre antes, o para pedir acceso, corrección o eliminación de tus datos, escribe a **sanandoalmaa@gmail.com**. Respondemos en un plazo máximo de 20 días hábiles. Si tienes una sesión agendada, el evento sigue en el calendario de Eduardo hasta que pidas eliminarlo.
 
 ## Contacto
 

@@ -203,34 +203,9 @@ async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) 
     return "\n\n".join(notas) or None
 
 
-async def borrar_datos(remitente: str) -> None:
-    """BORRAR MIS DATOS: borra su historial, estado y recordatorios, confirma y avisa a Eduardo.
-    El mensaje del comando no se guarda: borraría el registro que la persona pidió eliminar."""
-    try:
-        mensajes = await store.borrar_datos(remitente)
-    except Exception:
-        logger.exception("No se pudieron borrar los datos de una persona")
-        await telegram.alertar(
-            f"⚠️ +{remitente} pidió BORRAR MIS DATOS y falló el borrado en Supabase. Bórralos a mano y confírmale."
-        )
-        await whatsapp.enviar_texto(normalizar_numero(remitente), guardrails.RESPUESTA_DATOS_NO_BORRADOS)
-        return
-    logger.info("Datos borrados a petición de la persona (%s mensajes)", mensajes)
-    try:
-        await whatsapp.enviar_texto(normalizar_numero(remitente), guardrails.RESPUESTA_DATOS_BORRADOS)
-    finally:
-        await telegram.alertar(
-            f"🗑️ +{remitente} pidió BORRAR MIS DATOS: se borraron {mensajes} mensajes, su estado y recordatorios. "
-            "Si tenía una sesión en tu calendario, el evento sigue ahí."
-        )
-
-
 async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> None:
     metricas.iniciar()
     try:
-        if guardrails.es_borrar_mis_datos(texto):
-            await borrar_datos(remitente)
-            return
         try:
             es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
         except Exception:

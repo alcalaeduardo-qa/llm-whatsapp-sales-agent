@@ -1,7 +1,7 @@
 """Día 9: una fila por respuesta de Sofía con latencia, tokens, costo y fase.
 
 Las filas no llevan teléfono ni contenido: son datos de operación, no de la persona, y por eso no las
-tocan BORRAR MIS DATOS ni la retención de 90 días. Una métrica que falla nunca afecta la conversación.
+toca la retención de 90 días. Una métrica que falla nunca afecta la conversación.
 """
 
 import logging

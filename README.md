@@ -72,7 +72,6 @@ flowchart LR
 - **Hora equivalente calculada en código** para 11 zonas (Latinoamérica, España y EE. UU., con horario de verano): Claude ya no hace cuentas de zonas horarias.
 - **Fallas silenciosas de Meta detectadas:** si un mensaje aceptado se marca como fallido, Eduardo recibe un aviso.
 - **Privacidad:** los logs guardan longitud y huella, no el contenido; el prompt de venta no se publica.
-- **BORRAR MIS DATOS:** la persona lo escribe o lo dice en una nota de voz y Sofía borra su historial, estado y recordatorios.
 - **Retención de 90 días:** una función de Postgres programada con `pg_cron` borra cada noche lo de quien lleva 90 días sin escribir.
 
 ### Evals y red-teaming
@@ -167,7 +166,7 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 - [x] Docker: imagen multi-etapa verificada en el CI (arranca y responde `/health`)
 - [x] Hora equivalente calculada en código para otros países
 - [x] Deploy en Railway con dominio propio
-- [x] BORRAR MIS DATOS y retención de datos a 90 días
+- [x] Retención de datos a 90 días (el borrado a petición es por correo)
 - [x] Métricas de costo y latencia por respuesta, sin datos de la persona
 - [x] Aviso de privacidad en la primera respuesta
 
