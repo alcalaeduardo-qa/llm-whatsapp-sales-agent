@@ -1,6 +1,6 @@
 # Deploy en Railway
 
-Railway construye la imagen con el `Dockerfile` y usa `railway.toml`. Sofía corre como **una sola réplica**: los recordatorios viven en un bucle dentro del proceso.
+Sofía está en producción en Railway desde el 4 de noviembre de 2026; esta guía sirve para repetir el proceso. Railway detecta el `Dockerfile` por sí solo. Sofía corre como **una sola réplica**: los recordatorios viven en un bucle dentro del proceso.
 
 ## Antes de empezar
 
@@ -13,6 +13,9 @@ Railway construye la imagen con el `Dockerfile` y usa `railway.toml`. Sofía cor
 2. En **Variables → Raw Editor** pega el contenido de tu `.env`. Revisa que `LOG_CONTENIDO=false`.
 3. Agrega `SOFIA_PROMPT` con el contenido completo de `prompts/sofia.md`. Sin ella, Sofía usa la plantilla pública.
 4. En **Settings → Networking → Generate Domain** obtén la URL `https://<algo>.up.railway.app`.
+5. En **Settings → Deploy → Healthcheck Path** escribe `/health`.
+6. Pulsa **Deploy** en la barra morada para aplicar los cambios.
+7. Decide si enciendes **Auto deploy** en **Settings → Source**. Apagado, los merges a `main` podrían no publicarse solos.
 
 ## 2. Probar antes de cambiar los webhooks
 

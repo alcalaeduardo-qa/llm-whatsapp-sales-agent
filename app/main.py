@@ -24,6 +24,8 @@ from app.scheduling import dia_y_fecha
 from app.text import huella, normalizar_numero
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+# Las conexiones HTTP/3 del cliente de CalDAV escriben un aviso por minuto al cerrarse por inactividad.
+logging.getLogger("quic").setLevel(logging.ERROR)
 logger = logging.getLogger("sofia")
 
 

@@ -157,7 +157,7 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 ### Roadmap
 
 - [x] Webhook seguro, memoria e idempotencia
-- [x] Tests base (446, cobertura 98 %)
+- [x] Tests base (448, cobertura 98 %)
 - [x] Guardrails de crisis y validador de salida
 - [x] Derivación a Eduardo y modo humano por Telegram
 - [x] Agenda real con iCloud, reservas y recordatorios

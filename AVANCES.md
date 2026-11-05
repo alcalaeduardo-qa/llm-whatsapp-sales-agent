@@ -25,16 +25,16 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI, Docker, hora equivalente, BORRAR MIS DATOS y retención en `main` (PRs #11–#13); métricas y aviso de privacidad en la rama `dia-9-metricas-aviso`; falta Railway y el subdominio |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 Todo en `main` (PRs #11–#14) y **en producción en Railway** desde el 4 de noviembre; falta el subdominio |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **446 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **448 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-metricas-aviso`** (desde `main` con el PR #13 integrado).
+- Rama actual: **`dia-9-railway`** (desde `main` con el PR #14 integrado).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -190,8 +190,9 @@ Pendiente del Día 7:
 - **Retención de 90 días**: función de Postgres `purgar_inactivos(90)` programada con `pg_cron` (no depende del servidor). Probada en una transacción no confirmada: borró al inactivo y no tocó al reciente ni los datos reales.
 - **Métricas** (`app/metricas.py`, tabla `metricas`): una fila por respuesta de Claude o de crisis, con latencia hasta el envío, tokens y costo sumando clasificador y reintentos. Sin teléfono ni contenido, por eso no las tocan el borrado ni la retención. La fase sale del texto enviado sin otra llamada a Claude: `conversacion` agrupa filtro, patrón y objeción. Las consultas están en `docs/DEPLOY.md`.
 - **Aviso de privacidad**: pie fijo en la primera respuesta de Sofía, con enlace (`URL_PRIVACIDAD`) y BORRAR MIS DATOS. No entra al historial para que Claude no lo copie. La respuesta de crisis no lo lleva; llega cuando Sofía retoma. `PRIVACY.md` ya describe proveedores, retención y borrado, pero **no tuvo revisión legal**.
-- **Railway**: `railway.toml` y guía paso a paso en `docs/DEPLOY.md`. Eduardo debe crear el proyecto, porque requiere su cuenta y sus secretos.
-- Falta: probar en vivo métricas y aviso, deploy en Railway y subdominio. `sanandoalmaa.com` no tenía registros DNS el 4 de noviembre, hay que activar el dominio primero.
+- **Railway (producción desde el 4 de noviembre):** proyecto `valiant-vitality`, servicio `llm-whatsapp-sales-agent`, plan Trial, URL `https://llm-whatsapp-sales-agent-production.up.railway.app`. Los webhooks de Meta y Telegram ya apuntan ahí, así que ngrok y uvicorn local deben seguir apagados salvo para volver atrás. Probado en vivo: texto, nota de voz, comando de Telegram y métricas. Unos 6.5 s por respuesta y entre 0.0007 y 0.001 USD.
+- **Hallazgos del deploy:** el log de acceso de uvicorn guardó `VERIFY_TOKEN` al verificar el webhook de Meta (va en la URL). Ya se quitó ese log en el `Dockerfile`; **Eduardo debe cambiar el token en Railway y en Meta después de publicar ese cambio**. También se silenció el logger `quic` y se borró `railway.toml`, que Railway no usa: `/health` se configuró a mano y Auto deploy está apagado.
+- Falta: subdominio (`sanandoalmaa.com` no tenía registros DNS el 4 de noviembre, hay que activar el dominio primero) y elegir plan de Railway antes de que se acabe el Trial.
 
 ### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
