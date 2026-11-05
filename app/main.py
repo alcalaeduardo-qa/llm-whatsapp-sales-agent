@@ -102,7 +102,8 @@ async def derivar(remitente: str, motivo: str, resumen: str, ultimo_texto: str) 
 
 
 async def reenviar_a_eduardo(remitente: str, texto: str) -> None:
-    """Modo humano: no responde el modelo. Una crisis explícita sí recibe la línea de ayuda."""
+    """Modo humano: no responde el modelo. Una crisis explícita sí recibe la línea de ayuda; una encubierta
+    (la que detecta el clasificador) solo se marca en la alerta, porque Eduardo está atendiendo."""
     prefijo = ""
     if guardrails.crisis_explicita(texto):
         prefijo = "🚨 Posible crisis, Sofía le compartió la Línea de la Vida.\n"
@@ -110,26 +111,81 @@ async def reenviar_a_eduardo(remitente: str, texto: str) -> None:
             await enviar(remitente, guardrails.RESPUESTA_CRISIS)
         except Exception:
             logger.exception("No se pudo enviar la respuesta de crisis en modo humano")
+    elif await guardrails.detectar_crisis([texto]):
+        prefijo = (
+            "🚨 Posible crisis encubierta (la detectó el clasificador). Sofía no le escribió: revisa y escríbele tú.\n"
+        )
     await telegram.alertar(f"{prefijo}💬 +{remitente}\n{texto}\n\n{_pie(remitente)}")
 
 
 async def atender_crisis(remitente: str, nueva: bool) -> None:
     """Respuesta fija (no pasa por el modelo), pausa de venta y alerta a Eduardo."""
     if nueva:
-        await store.pausar_venta(remitente, "crisis")
+        pausada = await store.pausar_venta(remitente, "crisis")
         respuesta = guardrails.RESPUESTA_CRISIS
-        alerta = (
-            f"🚨 Posible crisis de +{remitente}. Sofía detuvo la venta y compartió la Línea de la Vida. "
-            "Contesta a este mensaje para escribirle."
-        )
+        if pausada:
+            alerta = (
+                f"🚨 Posible crisis de +{remitente}. Sofía detuvo la venta y compartió la Línea de la Vida. "
+                "Contesta a este mensaje para escribirle."
+            )
+        else:
+            alerta = (
+                f"🚨 Posible crisis de +{remitente}. Sofía compartió la Línea de la Vida, pero NO pudo pausar la venta "
+                f"(falló la base de datos): usa /pausar {remitente}. Contesta a este mensaje para escribirle."
+            )
     else:
         respuesta = guardrails.RESPUESTA_PAUSA
         alerta = f"Nuevo mensaje de +{remitente}, conversación en pausa por crisis. Sofía respondió con contención."
 
     try:
-        await enviar(remitente, respuesta)
+        try:
+            await enviar(remitente, respuesta)
+        except Exception:
+            # Si falló el guardado en la base, la persona no se queda sin la línea de ayuda: se manda directo
+            logger.exception("Falló el envío o el guardado de la respuesta de crisis; se reintenta directo")
+            await whatsapp.enviar_texto(normalizar_numero(remitente), respuesta)
     finally:
         await telegram.alertar(alerta)
+
+
+async def estado_desconocido(remitente: str, texto: str) -> None:
+    """No se pudo leer si la conversación está en pausa por crisis o con Eduardo. El modelo no responde, porque
+    podría romper una pausa; una crisis sí se atiende y, si no la hay, Eduardo se entera."""
+    if await guardrails.detectar_crisis([texto]):
+        await atender_crisis(remitente, nueva=True)
+        return
+    await telegram.alertar(
+        f"⚠️ No pude leer el estado de +{remitente} (falló la base de datos) y no le respondí, para no romper una "
+        f"pausa o un modo humano. Escríbele tú.\n\n{_pie(remitente)}"
+    )
+
+
+async def sin_guardado(remitente: str, texto: str) -> None:
+    """No se pudo guardar el mensaje entrante. Sin historial ni estado Sofía no responde, pero una crisis no
+    espera a la base de datos."""
+    if await guardrails.detectar_crisis([texto]):
+        try:
+            await whatsapp.enviar_texto(normalizar_numero(remitente), guardrails.RESPUESTA_CRISIS)
+        except Exception:
+            logger.exception("No se pudo enviar la respuesta de crisis directa")
+        await telegram.alertar(
+            f"🚨 Posible crisis de +{remitente}. Falló la base de datos: Sofía solo pudo mandar la Línea de la Vida. "
+            f"Escríbele tú.\n\n{_pie(remitente)}"
+        )
+        return
+    await telegram.alertar(
+        f"⚠️ No pude guardar el mensaje de +{remitente} (falló la base de datos) y no le respondí. "
+        f"Escríbele tú.\n\n{_pie(remitente)}"
+    )
+
+
+async def conversacion_cambio(remitente: str) -> dict | None:
+    """Reconsulta el estado justo antes de enviar. Mientras el modelo piensa, otra tarea puede haber atendido una
+    crisis o Eduardo puede haber tomado la conversación. Devuelve el estado si ya no se debe responder."""
+    estado = await store.obtener_estado(remitente)
+    if estado.get("desconocido"):
+        return None  # ya se leyó bien hace unos segundos; un fallo ahora no justifica perder la respuesta
+    return estado if estado["humano_activo"] or estado["venta_pausada"] else None
 
 
 async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) -> str | None:
@@ -175,12 +231,20 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
         if guardrails.es_borrar_mis_datos(texto):
             await borrar_datos(remitente)
             return
-        es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
+        try:
+            es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
+        except Exception:
+            logger.exception("No se pudo guardar el mensaje %s", wa_message_id)
+            await sin_guardado(remitente, texto)
+            return
         if not es_nuevo:
             logger.info("Mensaje duplicado %s, se ignora", wa_message_id)
             return
 
         estado = await store.obtener_estado(remitente)
+        if estado.get("desconocido"):
+            await estado_desconocido(remitente, texto)
+            return
         if estado["humano_activo"]:
             await reenviar_a_eduardo(remitente, texto)
             return
@@ -190,13 +254,34 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
 
         historial = await store.obtener_historial(remitente)
         recientes = [m["content"] for m in historial if m["role"] == "user"][-3:] or [texto]
-        if await guardrails.detectar_crisis(recientes):
+        if texto not in recientes:
+            recientes = [*recientes[-2:], texto]
+        # `actual=texto`: el último de la historia puede ser otro mensaje que llegó un instante después
+        if await guardrails.detectar_crisis(recientes, actual=texto):
             logger.warning("Crisis detectada (msg %s)", wa_message_id)
             await atender_crisis(remitente, nueva=True)
             await metricas.registrar("crisis")
             return
 
-        respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado, historial))
+        try:
+            respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado, historial))
+        except Exception:
+            logger.exception("Falló la respuesta de Sofía al mensaje %s", wa_message_id)
+            await telegram.alertar(
+                f"⚠️ No pude responderle a +{remitente}: falló la generación de la respuesta. "
+                f"Escríbele tú.\n\n{_pie(remitente)}"
+            )
+            return
+        cambio = await conversacion_cambio(remitente)
+        if cambio:
+            logger.warning(
+                "La conversación cambió mientras se generaba la respuesta; no se envía (msg %s)", wa_message_id
+            )
+            if cambio["humano_activo"]:
+                await reenviar_a_eduardo(remitente, texto)
+            else:
+                await atender_crisis(remitente, nueva=False)
+            return
         logger.info("Sofía responde %s", _desc(respuesta.texto))
         # El aviso va en la primera respuesta de Sofía, no en la de crisis: ahí estorbaría. Quien empezó
         # con una crisis lo recibe cuando Sofía retome la conversación.
@@ -237,6 +322,10 @@ async def audio_sin_transcribir(remitente: str, wa_message_id: str) -> None:
                 f"{_pie(remitente)}"
             )
             return
+        if estado["venta_pausada"]:
+            # En una pausa por crisis no basta con pedir que lo escriban: no se sabe qué decía la nota
+            await atender_crisis(remitente, nueva=False)
+            return
         await enviar(remitente, guardrails.RESPUESTA_AUDIO_FALLIDO)
     except Exception:
         logger.exception("Error avisando de la nota de voz sin transcribir %s", wa_message_id)
@@ -256,13 +345,27 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
         try:
             archivo, mime = await whatsapp.descargar_media(mensaje["media_id"])
             extension = mime.split("/")[-1].split(";")[0]
-            await telegram.enviar_archivo(archivo, f"{tipo}_{remitente}.{extension}", mime, leyenda)
+            llego = await telegram.enviar_archivo(archivo, f"{tipo}_{remitente}.{extension}", mime, leyenda)
         except Exception:
             logger.exception("No se pudo descargar el %s %s", tipo, mensaje["id"])
             await telegram.alertar(leyenda + "\n⚠️ No se pudo descargar el archivo de WhatsApp.")
+        else:
+            if not llego:
+                await telegram.alertar(
+                    leyenda + "\n⚠️ Telegram no recibió el archivo: revísalo en WhatsApp o pídele que lo reenvíe."
+                )
 
         estado = await store.obtener_estado(remitente)
-        if not estado["humano_activo"]:
+        # El pie de una imagen o un documento también puede ser una crisis: antes no se revisaba
+        crisis = bool(mensaje["caption"]) and await guardrails.detectar_crisis([mensaje["caption"]])
+        if estado["humano_activo"]:
+            if crisis:
+                await reenviar_a_eduardo(remitente, mensaje["caption"])
+        elif crisis:
+            await atender_crisis(remitente, nueva=True)
+        elif estado["venta_pausada"]:
+            await atender_crisis(remitente, nueva=False)  # el archivo ya está con Eduardo; la contención no se cambia
+        else:
             await store.activar_humano(remitente, "comprobante")
             await enviar(remitente, guardrails.RESPUESTA_COMPROBANTE)
     except Exception:
@@ -313,30 +416,28 @@ async def recibir(request: Request, tareas: BackgroundTasks):
     fallos = whatsapp.extraer_fallos(body)
     if fallos:
         tareas.add_task(avisar_fallos, fallos)
-        return {"status": "fallo_reportado"}
 
-    mensaje = whatsapp.extraer_mensaje(body)
-    if mensaje is None:
-        return {"status": "ignorado"}
+    # Se responde 200 de inmediato; Meta reintenta si el webhook tarda. Una entrega puede traer varios mensajes.
+    mensajes = whatsapp.extraer_mensajes(body)
+    if not mensajes:
+        return {"status": "fallo_reportado" if fallos else "ignorado"}
 
-    # Se responde 200 de inmediato; Meta reintenta si el webhook tarda.
-    if mensaje["type"] in whatsapp.TIPOS_MEDIA and mensaje["media_id"]:
-        logger.info("Archivo entrante %s (%s)", mensaje["id"], mensaje["type"])
-        tareas.add_task(procesar_media, mensaje["from"], mensaje)
-        return {"status": "recibido"}
-
-    if mensaje["type"] == whatsapp.AUDIO and mensaje["media_id"]:
-        logger.info("Nota de voz entrante %s", mensaje["id"])
-        tareas.add_task(procesar_audio, mensaje["from"], mensaje)
-        return {"status": "recibido"}
-
-    if mensaje["type"] != "text" or not mensaje["text"]:
-        logger.info("Mensaje tipo %s no soportado aún (msg %s)", mensaje["type"], mensaje["id"])
-        return {"status": "ignorado"}
-
-    logger.info("Mensaje entrante %s %s", mensaje["id"], _desc(mensaje["text"]))
-    tareas.add_task(procesar_mensaje, mensaje["from"], mensaje["text"], mensaje["id"])
-    return {"status": "recibido"}
+    recibidos = 0
+    for mensaje in mensajes:
+        if mensaje["type"] in whatsapp.TIPOS_MEDIA and mensaje["media_id"]:
+            logger.info("Archivo entrante %s (%s)", mensaje["id"], mensaje["type"])
+            tareas.add_task(procesar_media, mensaje["from"], mensaje)
+        elif mensaje["type"] == whatsapp.AUDIO and mensaje["media_id"]:
+            logger.info("Nota de voz entrante %s", mensaje["id"])
+            tareas.add_task(procesar_audio, mensaje["from"], mensaje)
+        elif mensaje["type"] == "text" and mensaje["text"]:
+            logger.info("Mensaje entrante %s %s", mensaje["id"], _desc(mensaje["text"]))
+            tareas.add_task(procesar_mensaje, mensaje["from"], mensaje["text"], mensaje["id"])
+        else:
+            logger.info("Mensaje tipo %s no soportado aún (msg %s)", mensaje["type"], mensaje["id"])
+            continue
+        recibidos += 1
+    return {"status": "recibido" if recibidos else "ignorado"}
 
 
 @app.post("/telegram/webhook")

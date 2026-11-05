@@ -27,16 +27,32 @@ async def alertar(texto: str) -> bool:
     if not configurado():
         logger.error("ALERTA sin Telegram configurado: %s", texto)
         return False
-    if len(texto) > LIMITE_TEXTO:
-        texto = texto[:LIMITE_TEXTO] + "…"
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.post(_url("sendMessage"), json={"chat_id": config.TELEGRAM_CHAT_ID, "text": texto})
-        r.raise_for_status()
-        return True
-    except httpx.HTTPError as e:
-        logger.error("No se pudo enviar la alerta a Telegram (%s): %s", type(e).__name__, texto)
-        return False
+    partes = partir(texto)
+    enviado = True
+    for numero, parte in enumerate(partes, 1):
+        if len(partes) > 1:
+            parte = f"({numero}/{len(partes)}) {parte}"
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.post(_url("sendMessage"), json={"chat_id": config.TELEGRAM_CHAT_ID, "text": parte})
+            r.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.error("No se pudo enviar la alerta a Telegram (%s): %s", type(e).__name__, parte)
+            enviado = False
+    return enviado
+
+
+def partir(texto: str) -> list[str]:
+    """Parte un texto largo en mensajes de hasta LIMITE_TEXTO caracteres, sin perder el final: ahí van el
+    pie con los comandos y, en modo humano, lo último que escribió la persona."""
+    partes = []
+    while len(texto) > LIMITE_TEXTO:
+        corte = texto.rfind("\n", 0, LIMITE_TEXTO)
+        corte = corte if corte > LIMITE_TEXTO // 2 else LIMITE_TEXTO  # mejor en un salto de línea si hay uno cerca
+        partes.append(texto[:corte])
+        texto = texto[corte:].lstrip("\n")
+    partes.append(texto)
+    return partes
 
 
 async def enviar_archivo(contenido: bytes, nombre: str, mime: str, leyenda: str) -> bool:

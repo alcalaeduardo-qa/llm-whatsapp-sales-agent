@@ -27,17 +27,7 @@ def firma_valida(cuerpo: bytes, encabezado: str | None, secreto: str | None = No
     return hmac.compare_digest(esperado, encabezado.removeprefix("sha256="))
 
 
-def extraer_mensaje(body: dict) -> dict | None:
-    """Devuelve {'from','id','type','text','media_id','caption'} del primer mensaje,
-    o None si es un evento sin mensaje."""
-    try:
-        value = body["entry"][0]["changes"][0]["value"]
-    except (KeyError, IndexError, TypeError):
-        return None
-    mensajes = value.get("messages")
-    if not mensajes:
-        return None
-    m = mensajes[0]
+def _parsear_mensaje(m: dict) -> dict:
     media = m.get(m["type"]) if m["type"] in TIPOS_MEDIA or m["type"] == AUDIO else None
     return {
         "from": m["from"],
@@ -47,6 +37,40 @@ def extraer_mensaje(body: dict) -> dict | None:
         "media_id": media.get("id") if media else None,
         "caption": media.get("caption") if media else None,
     }
+
+
+def extraer_mensajes(body: dict) -> list[dict]:
+    """Todos los mensajes del cuerpo, en orden: {'from','id','type','text','media_id','caption'}.
+
+    Meta puede agrupar varios mensajes (de una o varias personas) en una misma entrega firmada. Un mensaje
+    mal formado se omite sin tumbar a los demás."""
+    mensajes = []
+    try:
+        entradas = list(body["entry"])
+    except (KeyError, TypeError):
+        return mensajes
+    for entrada in entradas:
+        try:
+            cambios = list(entrada.get("changes") or [])
+        except AttributeError:
+            continue
+        for cambio in cambios:
+            try:
+                crudos = cambio["value"].get("messages") or []
+            except (KeyError, TypeError, AttributeError):
+                continue
+            for crudo in crudos:
+                try:
+                    mensajes.append(_parsear_mensaje(crudo))
+                except (KeyError, TypeError, AttributeError):
+                    continue
+    return mensajes
+
+
+def extraer_mensaje(body: dict) -> dict | None:
+    """El primer mensaje del cuerpo, o None si es un evento sin mensaje."""
+    mensajes = extraer_mensajes(body)
+    return mensajes[0] if mensajes else None
 
 
 def extraer_fallos(body: dict) -> list[dict]:

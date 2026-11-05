@@ -2,7 +2,7 @@
 
 > **Para Claude en un chat nuevo:** lee este archivo completo y después `plan-desarrollo-sofia.md` (el plan original de 10 días). Aquí está lo que ya se hizo, las decisiones de Eduardo que cambiaron el plan, cómo se opera el proyecto y qué sigue. Antes de tocar código corre `git status`, `git branch --show-current` y `ls prompts/` (debe existir `sofia.md`; ver "Estado del repositorio").
 
-Última actualización: 4 de noviembre de 2026.
+Última actualización: 5 de noviembre de 2026.
 
 ---
 
@@ -28,7 +28,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ✅ En `main` (PRs #11–#16) y **en producción en Railway** desde el 4 de noviembre, con subdominio |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **454 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **477 pasan, cobertura 99 %** (mínimo exigido 80 %).
 
 ---
 
@@ -202,6 +202,14 @@ Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
 - Día 9 (CI): correr `pytest` y `python -m evals.run --sin-juez` en cada PR. Los evals sin juez llaman a Claude (necesitan `ANTHROPIC_API_KEY` como secreto) y usan el prompt de ejemplo si el real no está.
 - Día 9 (deploy): `prompts/sofia.md` no viene en el repo → proveerlo en el servidor (archivo secreto o variable). El webhook de Telegram y el de Meta cambian a la URL definitiva.
 - Día 10 (PRIVACY): mencionar que Telegram recibe mensajes y comprobantes para Eduardo, que iCloud guarda el teléfono en el evento y que Groq recibe las notas de voz para transcribirlas.
+
+### Auditoría de seguridad (5 de noviembre de 2026)
+Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agentes, solo lectura de código, sin el prompt real). Resultado: **0 hallazgos confirmados, 22 pistas por validar, 1 descartada**. Los reportes (`REPORT.md`, `NEEDS-VALIDATION.md`) describen cómo atacar a Sofía: están en `C:\Users\Admin\security-audit-skill\sofia\run-1\`, **fuera del repo, no subirlos**.
+- **Crisis, corregida (rama `auditoria-crisis-tests`):** las 8 pistas de crisis se confirmaron primero con 13 tests que fallaban, y luego se corrigieron; `tests/test_auditoria_crisis.py` queda como regresión (22 tests con los caminos de emergencia).
+- Qué cambió: el pie de una imagen o documento se revisa por crisis; durante una pausa por crisis, una imagen o una nota de voz fallida reciben la contención (`RESPUESTA_PAUSA`) y no la respuesta de comprobante; antes de enviar se vuelve a leer el estado y, si Eduardo tomó la conversación o se pausó, no se manda la venta; `detectar_crisis` recibe el mensaje actual (`actual=`) y no el último de la historia; en modo humano el clasificador marca con 🚨 la crisis encubierta (sin escribirle a la persona); si no se puede guardar el mensaje, la crisis recibe la Línea de la Vida directo y Eduardo se entera; la respuesta de crisis se reintenta directo si falla guardarla; si falla Claude, Eduardo recibe un aviso; `obtener_estado` marca `desconocido` en lugar de asumir libre (el modelo no responde y Eduardo se entera); el webhook procesa todos los mensajes de un lote (`whatsapp.extraer_mensajes`); `telegram.alertar` parte los textos largos en mensajes `(1/2)`, `(2/2)` sin perder el final; si Telegram rechaza un comprobante, Eduardo recibe un aviso.
+- **Decisiones de diseño tomadas por Claude, a confirmar con Eduardo:** en modo humano la crisis encubierta solo se marca en la alerta (la explícita sigue recibiendo la Línea de la Vida); con el estado ilegible, una crisis se atiende y lo demás solo avisa a Eduardo; si el estado se vuelve ilegible justo antes de enviar, la respuesta sale. En modo humano cada mensaje hace una consulta más al clasificador (centavos).
+- Quedan mejoras menores de esta corrección, anotadas en el reporte privado de la auditoría.
+- Pendiente: el resto de las pistas de la auditoría (solo en el reporte privado) y probar el prompt real con ataques de inyección (DeepTeam o promptfoo).
 
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).

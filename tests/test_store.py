@@ -218,7 +218,8 @@ async def test_modo_humano_y_reanudar(conversaciones):
 @pytest.mark.anyio
 async def test_estado_tolera_fallas_de_la_base(monkeypatch, caplog):
     monkeypatch.setattr(store, "_cliente", lambda: SupabaseConversaciones(error=RuntimeError("no existe la tabla")))
-    assert await store.obtener_estado("521") == store.ESTADO_INICIAL
+    # No se asume que la conversación está libre: se marca como desconocido para no responder con el modelo
+    assert await store.obtener_estado("521") == {**store.ESTADO_INICIAL, "desconocido": True}
     assert await store.pausar_venta("521", "crisis") is False  # no lanza
     assert await store.activar_humano("521", "comprobante") is False
     assert await store.reanudar("521") is False
