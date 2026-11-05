@@ -131,12 +131,21 @@ async def enviar_plantilla(destino: str, nombre: str, parametros: list[str]) -> 
     )
 
 
+def _resumen_de_error(r: httpx.Response) -> str:
+    """Código y tipo del error de Meta, sin el cuerpo: el mensaje puede traer el teléfono o el texto."""
+    try:
+        error = r.json()["error"]
+        return f"código {error.get('code')}, tipo {error.get('type')}, subcódigo {error.get('error_subcode')}"
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return "sin detalle"
+
+
 async def _enviar(data: dict) -> None:
     url = f"https://graph.facebook.com/{config.GRAPH_API_VERSION}/{config.PHONE_NUMBER_ID}/messages"
     headers = {"Authorization": f"Bearer {config.WHATSAPP_TOKEN}"}
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.post(url, headers=headers, json=data)
     if r.is_error:
-        logger.error("Meta respondió %s: %s", r.status_code, r.text)
+        logger.error("Meta respondió %s (%s)", r.status_code, _resumen_de_error(r))
         r.raise_for_status()
     logger.info("Mensaje enviado (status %s)", r.status_code)

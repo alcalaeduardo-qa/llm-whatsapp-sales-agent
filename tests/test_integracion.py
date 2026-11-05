@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from app import guardrails
+from app.text import huella
 from tests.conftest import payload, post_firmado
 from tests.falsos import _alertas, _enviados, _texto
 
@@ -85,7 +86,7 @@ def test_error_de_meta_no_tumba_el_webhook(entorno, caplog):
     r = post_firmado(entorno["http"], payload())
     assert r.status_code == 200
     assert "Meta respondió 401" in caplog.text
-    assert "Error procesando mensaje wamid.ABC" in caplog.text
+    assert f"Error procesando mensaje #{huella('wamid.ABC')}" in caplog.text
 
 
 def test_logs_no_exponen_el_texto_del_usuario(entorno, caplog):

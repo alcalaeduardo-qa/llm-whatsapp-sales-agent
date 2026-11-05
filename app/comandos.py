@@ -15,7 +15,7 @@ logger = logging.getLogger("sofia.comandos")
 AYUDA = (
     "Comandos de Sofía\n\n"
     "Responder a una persona: contesta (reply) a su alerta con tu mensaje, "
-    "o usa /responder <teléfono> <mensaje> (teléfono sin espacios, p. ej. +5214931234567)\n"
+    "o usa /responder <teléfono> <mensaje> (teléfono sin espacios, p. ej. 5214931234567)\n"
     "/reservar <teléfono> <día/mes> <hora>  Después de validar el pago, crea la sesión en tu calendario "
     "y le avisa a la persona (p. ej. /reservar 5214931234567 2/11 14). Contestando a su alerta basta "
     "/reservar 2/11 14\n"
@@ -29,7 +29,9 @@ USO_RESERVAR = (
     "(o contesta a su alerta con /reservar 2/11 14). También acepta hoy, mañana y 2pm."
 )
 
-_TELEFONO_EN_ALERTA = re.compile(r"\+(\d{10,15})")
+# El encabezado de cada alerta trae el teléfono primero; 7 dígitos es el mínimo de un número internacional.
+# Con un mínimo mayor, un número corto se saltaba y se tomaba uno escrito por la persona más abajo.
+_TELEFONO_EN_ALERTA = re.compile(r"\+(\d{7,15})")
 _FECHA = re.compile(r"^(\d{1,2})/(\d{1,2})$")
 _HORA = re.compile(r"^(\d{1,2})(?::00)?(am|pm)?$")
 
