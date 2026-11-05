@@ -74,7 +74,9 @@ jobs:
       DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
     steps:
       - uses: actions/checkout@v4
+      # Sin la clave no se instala nada, y guardar la caché de pip vacía hace fallar el trabajo
       - uses: actions/setup-python@v5
+        if: env.ANTHROPIC_API_KEY != ''
         with:
           python-version: "3.14"
           cache: pip
