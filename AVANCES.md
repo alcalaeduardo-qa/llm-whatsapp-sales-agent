@@ -34,7 +34,7 @@ Tests: **448 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-railway`** (desde `main` con el PR #14 integrado).
+- Rama actual: **`dia-9-cierre`** (desde `main` con el PR #15 integrado).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -191,7 +191,9 @@ Pendiente del Día 7:
 - **Métricas** (`app/metricas.py`, tabla `metricas`): una fila por respuesta de Claude o de crisis, con latencia hasta el envío, tokens y costo sumando clasificador y reintentos. Sin teléfono ni contenido, por eso no las tocan el borrado ni la retención. La fase sale del texto enviado sin otra llamada a Claude: `conversacion` agrupa filtro, patrón y objeción. Las consultas están en `docs/DEPLOY.md`.
 - **Aviso de privacidad**: pie fijo en la primera respuesta de Sofía, con enlace (`URL_PRIVACIDAD`) y BORRAR MIS DATOS. No entra al historial para que Claude no lo copie. La respuesta de crisis no lo lleva; llega cuando Sofía retoma. `PRIVACY.md` ya describe proveedores, retención y borrado, pero **no tuvo revisión legal**.
 - **Railway (producción desde el 4 de noviembre):** proyecto `valiant-vitality`, servicio `llm-whatsapp-sales-agent`, plan Trial, URL `https://llm-whatsapp-sales-agent-production.up.railway.app`. Los webhooks de Meta y Telegram ya apuntan ahí, así que ngrok y uvicorn local deben seguir apagados salvo para volver atrás. Probado en vivo: texto, nota de voz, comando de Telegram y métricas. Unos 6.5 s por respuesta y entre 0.0007 y 0.001 USD.
-- **Hallazgos del deploy:** el log de acceso de uvicorn guardó `VERIFY_TOKEN` al verificar el webhook de Meta (va en la URL). Ya se quitó ese log en el `Dockerfile`; **Eduardo debe cambiar el token en Railway y en Meta después de publicar ese cambio**. También se silenció el logger `quic` y se borró `railway.toml`, que Railway no usa: `/health` se configuró a mano y Auto deploy está apagado.
+- **Hallazgos del deploy:** el log de acceso de uvicorn guardó `VERIFY_TOKEN` al verificar el webhook de Meta (va en la URL). Se quitó ese log en el `Dockerfile` y Eduardo cambió el token: el nuevo funciona y el viejo responde 403. También se silenció el logger `quic` y se borró `railway.toml`, que Railway no usa: `/health` se configuró a mano.
+- **Publicar:** Auto deploy está apagado, así que un merge a `main` no llega solo a producción. Hay que pulsar **Deploy latest commit** en Railway (Ctrl+K) y revisar qué versión queda ACTIVE.
+- **Evals en el CI:** el repo tiene 0 secretos, así que hoy se omiten. Faltan `ANTHROPIC_API_KEY` y `SOFIA_PROMPT` en GitHub.
 - Falta: subdominio (`sanandoalmaa.com` no tenía registros DNS el 4 de noviembre, hay que activar el dominio primero) y elegir plan de Railway antes de que se acabe el Trial.
 
 ### Días 9–10
