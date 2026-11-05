@@ -25,16 +25,16 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 Todo en `main` (PRs #11–#14) y **en producción en Railway** desde el 4 de noviembre; falta el subdominio |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ✅ En `main` (PRs #11–#16) y **en producción en Railway** desde el 4 de noviembre, con subdominio |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **448 pasan, cobertura 98 %** (mínimo exigido 80 %).
+Tests: **454 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-cierre`** (desde `main` con el PR #15 integrado).
+- Rama actual: **`dia-9-reconexion-icloud`** (desde `main` con el PR #16 integrado).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -190,11 +190,12 @@ Pendiente del Día 7:
 - **Retención de 90 días**: función de Postgres `purgar_inactivos(90)` programada con `pg_cron` (no depende del servidor). Probada en una transacción no confirmada: borró al inactivo y no tocó al reciente ni los datos reales.
 - **Métricas** (`app/metricas.py`, tabla `metricas`): una fila por respuesta de Claude o de crisis, con latencia hasta el envío, tokens y costo sumando clasificador y reintentos. Sin teléfono ni contenido, por eso no las tocan el borrado ni la retención. La fase sale del texto enviado sin otra llamada a Claude: `conversacion` agrupa filtro, patrón y objeción. Las consultas están en `docs/DEPLOY.md`.
 - **Aviso de privacidad**: pie fijo en la primera respuesta de Sofía, con enlace (`URL_PRIVACIDAD`) y BORRAR MIS DATOS. No entra al historial para que Claude no lo copie. La respuesta de crisis no lo lleva; llega cuando Sofía retoma. `PRIVACY.md` ya describe proveedores, retención y borrado, pero **no tuvo revisión legal**.
-- **Railway (producción desde el 4 de noviembre):** proyecto `valiant-vitality`, servicio `llm-whatsapp-sales-agent`, plan Trial, URL `https://llm-whatsapp-sales-agent-production.up.railway.app`. Los webhooks de Meta y Telegram ya apuntan ahí, así que ngrok y uvicorn local deben seguir apagados salvo para volver atrás. Probado en vivo: texto, nota de voz, comando de Telegram y métricas. Unos 6.5 s por respuesta y entre 0.0007 y 0.001 USD.
+- **Railway (producción desde el 4 de noviembre):** proyecto `valiant-vitality`, servicio `llm-whatsapp-sales-agent`, plan Trial, dominio `https://sofia.sanandoalmaa.com` (DNS en Namecheap; el plan no admite otro dominio personalizado). Los webhooks de Meta y Telegram ya apuntan ahí, así que ngrok y uvicorn local deben seguir apagados salvo para volver atrás. Probado en vivo: texto, nota de voz, comando de Telegram y métricas. Unos 6.5 s por respuesta y entre 0.0007 y 0.001 USD.
 - **Hallazgos del deploy:** el log de acceso de uvicorn guardó `VERIFY_TOKEN` al verificar el webhook de Meta (va en la URL). Se quitó ese log en el `Dockerfile` y Eduardo cambió el token: el nuevo funciona y el viejo responde 403. También se silenció el logger `quic` y se borró `railway.toml`, que Railway no usa: `/health` se configuró a mano.
-- **Publicar:** Auto deploy está apagado, así que un merge a `main` no llega solo a producción. Hay que pulsar **Deploy latest commit** en Railway (Ctrl+K) y revisar qué versión queda ACTIVE.
-- **Evals en el CI:** el repo tiene 0 secretos, así que hoy se omiten. Faltan `ANTHROPIC_API_KEY` y `SOFIA_PROMPT` en GitHub.
-- Falta: subdominio (`sanandoalmaa.com` no tenía registros DNS el 4 de noviembre, hay que activar el dominio primero) y elegir plan de Railway antes de que se acabe el Trial.
+- **Publicar:** Auto deploy está encendido, así que cada merge a `main` llega solo a producción, sin esperar al CI. Hacer merge solo con los checks en verde y aplicar las migraciones antes del merge.
+- **Evals en el CI:** ya corren con los secretos `ANTHROPIC_API_KEY` y `SOFIA_PROMPT`: 92.2 % (59/64), 0.126 USD. Primero se crearon por error como Variables y se borraron; Eduardo decide si cambia la clave de Anthropic.
+- **Cortes de iCloud:** la revisión de recordatorios falló el 5 de noviembre a las 04:33 y 05:35 UTC, al menos la primera por `HTTP/3 connection terminated`. `calendario._con_reintento` reintenta una vez con una conexión nueva y deja un aviso `iCloud falló` en el log. Revisar que deje de aparecer `Falló la revisión de recordatorios`.
+- Falta: elegir plan de Railway antes de que se acabe el Trial (Eduardo decidió seguir en Trial por ahora).
 
 ### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:

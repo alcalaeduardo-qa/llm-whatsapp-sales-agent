@@ -15,7 +15,7 @@ Sofía está en producción en Railway desde el 4 de noviembre de 2026; esta gu�
 4. En **Settings → Networking → Generate Domain** obtén la URL `https://<algo>.up.railway.app`.
 5. En **Settings → Deploy → Healthcheck Path** escribe `/health`.
 6. Pulsa **Deploy** en la barra morada para aplicar los cambios.
-7. Decide si enciendes **Auto deploy** en **Settings → Source**. Apagado, los merges a `main` podrían no publicarse solos.
+7. Decide si enciendes **Auto deploy** en **Settings → Source**. Encendido, cada merge a `main` se publica solo y las migraciones deben aplicarse antes. Apagado, hay que pulsar **Deploy latest commit** (Ctrl+K).
 
 ## 2. Probar antes de cambiar los webhooks
 
@@ -46,10 +46,10 @@ Apaga primero el servidor local y ngrok, para que no haya dos procesos mandando 
 
 ## 5. Subdominio de sanandoalmaa.com
 
-`sanandoalmaa.com` no tenía registros DNS el 4 de noviembre de 2026, así que primero hay que activar el dominio.
+El dominio definitivo es `sofia.sanandoalmaa.com`, con el DNS en Namecheap (**Domain List → Manage → Advanced DNS**). Railway pide un `CNAME` y un `TXT` de verificación.
 
 1. En Railway: **Settings → Networking → Custom Domain**, por ejemplo `sofia.sanandoalmaa.com`.
-2. En tu proveedor de dominio crea el registro `CNAME` que indique Railway.
+2. En tu proveedor de dominio crea los dos registros que indique Railway.
 3. Cuando el certificado esté listo, repite el paso 3 con el dominio definitivo.
 
 ## Volver a local

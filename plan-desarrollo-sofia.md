@@ -69,7 +69,7 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 ## Día 9 — Docker, CI, deploy, observabilidad, privacidad
 - [x] Dockerfile multi-stage + docker-compose.
 - [x] GitHub Actions: ruff + pytest + evals deterministas en cada PR; evals LLM en `workflow_dispatch`/nightly.
-- [ ] Deploy en Railway desde Dockerfile; webhook definitivo en subdominio de sanandoalmaa.com.
+- [x] Deploy en Railway desde Dockerfile; webhook definitivo en subdominio de sanandoalmaa.com.
 - [x] Tabla `metricas`: latencia, tokens in/out, costo por mensaje, fase detectada.
 - [x] **Retención 90 días:** job diario que borra/anonimiza conversaciones sin actividad >90 días.
 - [x] Comando `BORRAR MIS DATOS` → borra historial y confirma.
