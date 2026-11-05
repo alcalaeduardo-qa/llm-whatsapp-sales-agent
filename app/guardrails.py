@@ -99,6 +99,23 @@ def senal_debil(texto: str) -> bool:
     return bool(_CRISIS_DEBIL.search(normalizar(texto)))
 
 
+def mensajes_para_crisis(historial: list[dict], texto: str) -> list[str]:
+    """Últimos mensajes de la persona para el clasificador, sin los anteriores a la última respuesta fija de crisis.
+
+    Esa crisis ya se atendió: si un mensaje llega hasta aquí es que Eduardo reanudó la conversación, y releerla
+    haría que un simple "hola" volviera a pausarla."""
+    corte = max(
+        (
+            i
+            for i, m in enumerate(historial)
+            if m["role"] == "assistant" and m["content"] in (RESPUESTA_CRISIS, RESPUESTA_PAUSA)
+        ),
+        default=-1,
+    )
+    recientes = [m["content"] for m in historial[corte + 1 :] if m["role"] == "user"][-3:]
+    return recientes if texto in recientes else [*recientes[-2:], texto]
+
+
 async def detectar_crisis(mensajes: list[str], actual: str | None = None) -> bool:
     """`mensajes`: últimos textos de la persona, para darle contexto al clasificador.
     `actual`: el mensaje que se está procesando; si no se indica, el último de `mensajes`.
