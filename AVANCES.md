@@ -2,7 +2,7 @@
 
 > **Para Claude en un chat nuevo:** lee este archivo completo y después `plan-desarrollo-sofia.md` (el plan original de 10 días). Aquí está lo que ya se hizo, las decisiones de Eduardo que cambiaron el plan, cómo se opera el proyecto y qué sigue. Antes de tocar código corre `git status`, `git branch --show-current` y `ls prompts/` (debe existir `sofia.md`; ver "Estado del repositorio").
 
-Última actualización: 1 de noviembre de 2026.
+Última actualización: 4 de noviembre de 2026.
 
 ---
 
@@ -25,16 +25,16 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI en `main` (PR #11); Docker y hora equivalente en la rama `dia-9-hora-docker`; falta Railway, métricas, retención |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | 🟡 CI, Docker, hora equivalente, BORRAR MIS DATOS y retención en `main` (PRs #11–#13); métricas y aviso de privacidad en la rama `dia-9-metricas-aviso`; falta Railway y el subdominio |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **421 pasan, cobertura 99 %** (mínimo exigido 80 %).
+Tests: **446 pasan, cobertura 98 %** (mínimo exigido 80 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-privacidad`** (desde `main` con Docker y hora equivalente integrados).
+- Rama actual: **`dia-9-metricas-aviso`** (desde `main` con el PR #13 integrado).
 - Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -72,6 +72,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 | `docs/FMEA.md` | 24 modos de falla con S/O/D, RPN, control y métrica |
 | `app/calendario.py` | **Día 5**: iCloud por CalDAV: lee ocupados (caché 2 min) y crea la reserva |
 | `app/comandos.py` | Comandos de Eduardo en Telegram |
+| `app/metricas.py` | **Día 9**: latencia, tokens, costo y fase por respuesta, sin teléfono ni contenido |
 | `app/store.py` | Supabase: `mensajes` y `conversaciones` (estado) |
 | `app/telegram.py` | Alertas, reenvío de archivos, registro del webhook (`python -m app.telegram <url>`) |
 | `app/whatsapp.py` | Firma de Meta, parseo, envío, descarga de media |
@@ -81,7 +82,8 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 ### Base de datos (Supabase)
 - `mensajes`: `telefono, rol (user|assistant), contenido, wa_message_id (único), creado_en`. Los mensajes que Eduardo manda desde Telegram se guardan con prefijo `[Eduardo] `.
 - `conversaciones`: `telefono (PK), venta_pausada, motivo_pausa, pausada_en, humano_activo, motivo_humano, humano_desde, actualizado_en`.
-- Migraciones aplicadas en producción: `dia3_conversaciones`, `dia4_modo_humano`, `dia5_recordatorios` (tabla `recordatorios`: evento_uid PK, telefono, inicio, enviado_en), `dia9_retencion_90_dias` (función `purgar_inactivos(dias)` + tarea de `pg_cron` `sofia-retencion-90-dias`, diaria a las 9:00 UTC).
+- Migraciones aplicadas en producción: `dia3_conversaciones`, `dia4_modo_humano`, `dia5_recordatorios` (tabla `recordatorios`: evento_uid PK, telefono, inicio, enviado_en), `dia9_retencion_90_dias` (función `purgar_inactivos(dias)` + tarea de `pg_cron` `sofia-retencion-90-dias`, diaria a las 9:00 UTC), `dia9_metricas_aviso` (tabla `metricas` y columna `conversaciones.aviso_privacidad_en`).
+- Las migraciones van **antes** del código que las usa: sin `aviso_privacidad_en` falla la lectura del estado y Sofía respondería en modo humano.
 
 ### Comandos de Telegram (solo desde `TELEGRAM_CHAT_ID`)
 - Contestar (reply) a una alerta → el texto le llega a la persona por WhatsApp y Sofía queda en silencio.
@@ -186,7 +188,10 @@ Pendiente del Día 7:
 - **Docker**: `Dockerfile` multi-etapa (usuario sin privilegios, healthcheck, `$PORT`), `.dockerignore` (excluye `.env` y `prompts/sofia.md`), `docker-compose.yml`. El CI construye la imagen, verifica que no contenga el prompt y que responda `/health`. En el servidor el prompt va en la variable `SOFIA_PROMPT` (`prompt.texto_del_prompt`).
 - **BORRAR MIS DATOS** (`guardrails.es_borrar_mis_datos`, `main.borrar_datos`, `store.borrar_datos`): frase exacta escrita o en nota de voz; borra mensajes, estado y recordatorios, confirma por WhatsApp y avisa a Eduardo. El evento del calendario no se toca.
 - **Retención de 90 días**: función de Postgres `purgar_inactivos(90)` programada con `pg_cron` (no depende del servidor). Probada en una transacción no confirmada: borró al inactivo y no tocó al reciente ni los datos reales.
-- Falta: deploy en Railway, subdominio de sanandoalmaa.com, tabla de métricas y aviso de privacidad en el primer mensaje.
+- **Métricas** (`app/metricas.py`, tabla `metricas`): una fila por respuesta de Claude o de crisis, con latencia hasta el envío, tokens y costo sumando clasificador y reintentos. Sin teléfono ni contenido, por eso no las tocan el borrado ni la retención. La fase sale del texto enviado sin otra llamada a Claude: `conversacion` agrupa filtro, patrón y objeción. Las consultas están en `docs/DEPLOY.md`.
+- **Aviso de privacidad**: pie fijo en la primera respuesta de Sofía, con enlace (`URL_PRIVACIDAD`) y BORRAR MIS DATOS. No entra al historial para que Claude no lo copie. La respuesta de crisis no lo lleva; llega cuando Sofía retoma. `PRIVACY.md` ya describe proveedores, retención y borrado, pero **no tuvo revisión legal**.
+- **Railway**: `railway.toml` y guía paso a paso en `docs/DEPLOY.md`. Eduardo debe crear el proyecto, porque requiere su cuenta y sus secretos.
+- Falta: probar en vivo métricas y aviso, deploy en Railway y subdominio. `sanandoalmaa.com` no tenía registros DNS el 4 de noviembre, hay que activar el dominio primero.
 
 ### Días 9–10
 Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:

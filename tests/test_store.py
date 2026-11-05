@@ -160,6 +160,29 @@ def conversaciones(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_guardar_metrica_inserta_la_fila_en_su_tabla(monkeypatch):
+    insertadas = []
+
+    class Metricas:
+        def table(self, nombre):
+            assert nombre == "metricas"
+            return self
+
+        def insert(self, fila):
+            insertadas.append(fila)
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=[])
+
+    monkeypatch.setattr(store, "_cliente", Metricas)
+
+    await store.guardar_metrica({"fase": "crisis"})
+
+    assert insertadas == [{"fase": "crisis"}]
+
+
+@pytest.mark.anyio
 async def test_estado_inicial_sin_fila(conversaciones):
     assert await store.obtener_estado("521") == store.ESTADO_INICIAL
 
@@ -177,6 +200,7 @@ async def test_pausar_venta(conversaciones):
 async def test_modo_humano_y_reanudar(conversaciones):
     await store.pausar_venta("521", "crisis")
     await store.activar_humano("521", "comprobante")
+    assert await store.marcar_aviso_privacidad("521") is True
     assert await store.obtener_estado("521") == dict.fromkeys(store.ESTADO_INICIAL, True)
     assert conversaciones.filas["521"]["motivo_humano"] == "comprobante"
 
@@ -186,6 +210,7 @@ async def test_modo_humano_y_reanudar(conversaciones):
         "venta_pausada": False,
         "humano_activo": False,
         "atendida_por_eduardo": True,
+        "aviso_privacidad": True,
     }
     assert conversaciones.filas["521"]["motivo_pausa"] == "crisis"  # se conserva el historial del motivo
 

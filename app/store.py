@@ -94,14 +94,19 @@ def _obtener_historial(telefono: str, limite: int) -> list[dict]:
 
 
 # atendida_por_eduardo: la conversación pasó alguna vez por Eduardo (tiene motivo_humano).
-ESTADO_INICIAL = {"venta_pausada": False, "humano_activo": False, "atendida_por_eduardo": False}
+ESTADO_INICIAL = {
+    "venta_pausada": False,
+    "humano_activo": False,
+    "atendida_por_eduardo": False,
+    "aviso_privacidad": False,
+}
 
 
 def _obtener_estado(telefono: str) -> dict:
     resultado = (
         _cliente()
         .table("conversaciones")
-        .select("venta_pausada, humano_activo, motivo_humano")
+        .select("venta_pausada, humano_activo, motivo_humano, aviso_privacidad_en")
         .eq("telefono", telefono)
         .limit(1)
         .execute()
@@ -111,6 +116,7 @@ def _obtener_estado(telefono: str) -> dict:
         "venta_pausada": bool(fila.get("venta_pausada")),
         "humano_activo": bool(fila.get("humano_activo")),
         "atendida_por_eduardo": bool(fila.get("motivo_humano")),
+        "aviso_privacidad": bool(fila.get("aviso_privacidad_en")),
     }
 
 
@@ -174,6 +180,19 @@ async def activar_humano(telefono: str, motivo: str) -> bool:
 async def reanudar(telefono: str) -> bool:
     """Devuelve la conversación a Sofía y quita cualquier pausa."""
     return await _actualizar(telefono, {"humano_activo": False, "venta_pausada": False}, "reanudar")
+
+
+async def marcar_aviso_privacidad(telefono: str) -> bool:
+    """La persona ya recibió el aviso de privacidad: no se le vuelve a mandar."""
+    return await _actualizar(telefono, {"aviso_privacidad_en": _ahora()}, "marcar el aviso de privacidad")
+
+
+def _guardar_metrica(fila: dict) -> None:
+    _cliente().table("metricas").insert(fila).execute()
+
+
+async def guardar_metrica(fila: dict) -> None:
+    await asyncio.to_thread(_guardar_metrica, fila)
 
 
 def _marcar_recordatorio(evento_uid: str, telefono: str, inicio: str) -> bool:
