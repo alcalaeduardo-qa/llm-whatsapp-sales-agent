@@ -155,6 +155,37 @@ def _montos_invalidos(texto: str) -> list[str]:
     return invalidos
 
 
+# 16 o más dígitos seguidos, con espacios o guiones sueltos: una CLABE (18) o una tarjeta (16). Un teléfono
+# internacional tiene 15 como máximo, así que no se confunde.
+_NUMERO_DE_CUENTA = re.compile(r"\d(?:[ -]?\d){15,}")
+_PUNTUACION_DE_ENLACE = ".,;:!?)]}»”\"'"
+
+
+def _enlace_limpio(enlace: str) -> str:
+    """El enlace sin la puntuación o la barra final que la frase le pega."""
+    return enlace.strip().rstrip(_PUNTUACION_DE_ENLACE + "/")
+
+
+def _datos_de_pago_ajenos(texto: str) -> list[str]:
+    """Una CLABE, tarjeta o enlace que no sea exactamente el configurado. El modelo puede copiarlo de un mensaje
+    de la persona ("paga a esta cuenta"), inventarlo o equivocarse: lo que sale de este número no debe mandar
+    dinero a otro lado. Sin dato configurado no se acepta ninguno. Los avisos no repiten el número ni el enlace."""
+    problemas = []
+    clabe = re.sub(r"\D", "", config.DATOS_PAGO["clabe"])
+    for numero in _NUMERO_DE_CUENTA.finditer(texto):
+        if not clabe or re.sub(r"\D", "", numero.group(0)) != clabe:
+            problemas.append("número de cuenta o tarjeta distinto del configurado")
+            break
+    permitidos = {
+        _enlace_limpio(enlace)
+        for enlace in (config.DATOS_PAGO["link_stripe"], config.DATOS_PAGO["link_guia"], config.URL_PRIVACIDAD)
+        if enlace
+    }
+    if any(_enlace_limpio(enlace) not in permitidos for enlace in _URL.findall(texto)):
+        problemas.append("enlace que no es de los configurados")
+    return problemas
+
+
 def es_problema_de_largo(problema: str) -> bool:
     """Reglas de estilo que no justifican mandar el respaldo (ver main.generar_validada)."""
     return problema.startswith(("demasiado largo", "demasiados párrafos"))
@@ -164,7 +195,7 @@ def validar_salida(texto: str) -> list[str]:
     """Lista de reglas incumplidas; vacía si el mensaje puede enviarse."""
     if not texto.strip():
         return ["vacío"]
-    problemas = []
+    problemas = _datos_de_pago_ajenos(texto)
     sin_urls = _URL.sub(" ", texto)
     problemas += [nombre for nombre, patron in _SIGNOS if patron.search(sin_urls)]
     if _MARKDOWN.search(sin_urls):

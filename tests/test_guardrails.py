@@ -89,7 +89,6 @@ def test_palabras_parecidas_no_se_confunden(texto):
         "Cuesta 300 MXN",
         "La guía cuesta 136 pesos mexicanos o 8 USD",
         "Llama al 800 911 2000 o escribe a las 2 PM",
-        "Transferencia a CLABE 012345678901234567",
         "Una hora con Eduardo, atiende las 24 horas",
     ],
 )
@@ -112,9 +111,15 @@ def test_precios_no_autorizados(texto):
     assert any(p.startswith("precio no autorizado") for p in validar_salida(texto))
 
 
-def test_enlaces_quedan_exentos_de_signos():
-    texto = "Paga en esta página segura https://buy.stripe.com/a-b_c:d?x=1;y=2 y me avisas"
-    assert validar_salida(texto) == []
+def test_una_clabe_configurada_no_se_toma_por_un_precio(monkeypatch):
+    monkeypatch.setitem(config.DATOS_PAGO, "clabe", "012345678901234567")
+    assert validar_salida("Transferencia a CLABE 012345678901234567") == []
+
+
+def test_enlaces_quedan_exentos_de_signos(monkeypatch):
+    enlace = "https://buy.stripe.com/a-b_c:d?x=1;y=2"
+    monkeypatch.setitem(config.DATOS_PAGO, "link_stripe", enlace)
+    assert validar_salida(f"Paga en esta página segura {enlace} y me avisas") == []
 
 
 def test_longitud_y_parrafos(monkeypatch):
