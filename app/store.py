@@ -148,13 +148,13 @@ async def obtener_historial(telefono: str, limite: int = config.HISTORIAL_MAX) -
 
 
 async def obtener_estado(telefono: str) -> dict:
-    """Si la consulta falla se asume el estado inicial: la detección de crisis corre en cada
-    mensaje de todos modos."""
+    """Si la consulta falla, el estado vuelve marcado con `desconocido`: no se sabe si la conversación está en
+    pausa por crisis o con Eduardo, y quien llama no debe responder con el modelo como si estuviera libre."""
     try:
         return await asyncio.to_thread(_obtener_estado, telefono)
     except Exception:
         logger.exception("No se pudo leer el estado de la conversación")
-        return dict(ESTADO_INICIAL)
+        return {**ESTADO_INICIAL, "desconocido": True}
 
 
 async def _actualizar(telefono: str, campos: dict, que: str) -> bool:

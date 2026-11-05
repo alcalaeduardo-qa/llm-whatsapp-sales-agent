@@ -113,13 +113,17 @@ def senal_debil(texto: str) -> bool:
     return bool(_CRISIS_DEBIL.search(normalizar(texto)))
 
 
-async def detectar_crisis(mensajes: list[str]) -> bool:
-    """`mensajes`: últimos textos de la persona, el actual al final.
+async def detectar_crisis(mensajes: list[str], actual: str | None = None) -> bool:
+    """`mensajes`: últimos textos de la persona, para darle contexto al clasificador.
+    `actual`: el mensaje que se está procesando; si no se indica, el último de `mensajes`.
+
+    Quien procesa un mensaje debe pasar `actual`: la lista sale de la historia guardada y, si llegan dos mensajes
+    seguidos, su último elemento puede ser el otro.
 
     Palabras explícitas → crisis sin consultar al modelo. Si no, decide un clasificador corto
     (detecta crisis encubierta). Si el clasificador falla, cualquier señal ambigua cuenta como crisis.
     """
-    actual = mensajes[-1]
+    actual = mensajes[-1] if actual is None else actual
     if crisis_explicita(actual):
         return True
     if not config.CRISIS_LLM:

@@ -76,7 +76,9 @@ def test_claude_deriva_avisa_y_se_calla(entorno):
 
     # Siguiente mensaje: Sofía no responde, se reenvía a Eduardo
     post_firmado(entorno["http"], payload(texto="¿Me va a escribir hoy?", wa_id="w2"))
-    assert len(entorno["claude"].peticiones) == 1 and len(entorno["claude"].clasificaciones) == 1
+    # El modelo de ventas no vuelve a responder (1 petición); el clasificador de crisis sí revisa el mensaje
+    # nuevo, porque en modo humano también puede llegar una crisis encubierta (1 + 1 consultas)
+    assert len(entorno["claude"].peticiones) == 1 and len(entorno["claude"].clasificaciones) == 2
     assert entorno["meta"].call_count == 1
     assert f"💬 +{TEL}\n¿Me va a escribir hoy?" in _alertas(entorno["telegram"])[1]
 
@@ -317,9 +319,19 @@ def test_secreto_vacio_rechaza_todo(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_alerta_larga_se_recorta(entorno):
-    await telegram.alertar("a" * 5000)
-    assert len(_alertas(entorno["telegram"])[0]) == telegram.LIMITE_TEXTO + 1
+async def test_alerta_larga_se_parte_sin_perder_el_final(entorno):
+    await telegram.alertar("a" * 5000 + " FINAL")
+    partes = _alertas(entorno["telegram"])
+    assert len(partes) == 2 and partes[0].startswith("(1/2) ") and partes[1].startswith("(2/2) ")
+    assert all(len(p) <= telegram.LIMITE_TEXTO + len("(1/2) ") for p in partes)
+    assert partes[1].endswith(" FINAL")
+    assert "".join(p.split(") ", 1)[1] for p in partes) == "a" * 5000 + " FINAL"
+
+
+def test_partir_prefiere_un_salto_de_linea_y_no_toca_un_texto_corto():
+    assert telegram.partir("hola") == ["hola"]
+    texto = "x" * 3000 + "\n" + "y" * 1000
+    assert telegram.partir(texto) == ["x" * 3000, "y" * 1000]
 
 
 @pytest.mark.anyio
