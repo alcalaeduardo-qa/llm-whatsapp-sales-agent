@@ -1,6 +1,8 @@
 import hashlib
 import re
 
+from app import config
+
 
 def normalizar_numero(numero: str) -> str:
     """Meta entrega números MX como 521XXXXXXXXXX; para enviar se usa 52XXXXXXXXXX."""
@@ -25,3 +27,16 @@ def limpiar_texto(texto: str) -> str:
 def huella(texto: str) -> str:
     """Identificador corto para logs sin exponer el contenido."""
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:10]
+
+
+def describir(texto: str) -> str:
+    """Para logs: el contenido solo si LOG_CONTENIDO=true (depuración local); si no, longitud y huella."""
+    if config.LOG_CONTENIDO:
+        return repr(texto)
+    return f"<{len(texto)} chars #{huella(texto)}>"
+
+
+def referencia(dato: str) -> str:
+    """Para logs: un identificador (de mensaje, teléfono) como huella. Los wamid de Meta llevan el teléfono
+    codificado dentro, así que tampoco se registran tal cual."""
+    return f"#{huella(dato)}"

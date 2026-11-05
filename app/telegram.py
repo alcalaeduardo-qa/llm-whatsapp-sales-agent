@@ -6,6 +6,7 @@ import logging
 import httpx
 
 from app import config
+from app.text import describir
 
 logger = logging.getLogger("sofia.telegram")
 # httpx registra cada URL en INFO y la de la API de Telegram lleva el token del bot.
@@ -25,7 +26,7 @@ def configurado() -> bool:
 async def alertar(texto: str) -> bool:
     """Avisa a Eduardo por Telegram. Nunca lanza: una alerta fallida no debe frenar la respuesta."""
     if not configurado():
-        logger.error("ALERTA sin Telegram configurado: %s", texto)
+        logger.error("ALERTA sin Telegram configurado: %s", describir(texto))
         return False
     partes = partir(texto)
     enviado = True
@@ -37,7 +38,7 @@ async def alertar(texto: str) -> bool:
                 r = await client.post(_url("sendMessage"), json={"chat_id": config.TELEGRAM_CHAT_ID, "text": parte})
             r.raise_for_status()
         except httpx.HTTPError as e:
-            logger.error("No se pudo enviar la alerta a Telegram (%s): %s", type(e).__name__, parte)
+            logger.error("No se pudo enviar la alerta a Telegram (%s): %s", type(e).__name__, describir(parte))
             enviado = False
     return enviado
 
@@ -58,7 +59,7 @@ def partir(texto: str) -> list[str]:
 async def enviar_archivo(contenido: bytes, nombre: str, mime: str, leyenda: str) -> bool:
     """Reenvía un archivo (p. ej. un comprobante) a Eduardo. Nunca lanza."""
     if not configurado():
-        logger.error("ARCHIVO sin Telegram configurado: %s", leyenda)
+        logger.error("ARCHIVO sin Telegram configurado: %s", describir(leyenda))
         return False
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -70,7 +71,7 @@ async def enviar_archivo(contenido: bytes, nombre: str, mime: str, leyenda: str)
         r.raise_for_status()
         return True
     except httpx.HTTPError as e:
-        logger.error("No se pudo reenviar el archivo a Telegram (%s): %s", type(e).__name__, leyenda)
+        logger.error("No se pudo reenviar el archivo a Telegram (%s): %s", type(e).__name__, describir(leyenda))
         return False
 
 

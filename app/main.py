@@ -21,7 +21,7 @@ from app import (
     whatsapp,
 )
 from app.scheduling import dia_y_fecha
-from app.text import huella, normalizar_numero
+from app.text import describir, normalizar_numero, referencia
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 # Las conexiones HTTP/3 del cliente de CalDAV escriben un aviso por minuto al cerrarse por inactividad.
@@ -41,13 +41,6 @@ async def ciclo_de_vida(_app: FastAPI):
 
 
 app = FastAPI(title="Sofía · WhatsApp sales agent", lifespan=ciclo_de_vida)
-
-
-def _desc(texto: str) -> str:
-    """Contenido completo solo si LOG_CONTENIDO=true; si no, longitud + huella."""
-    if config.LOG_CONTENIDO:
-        return repr(texto)
-    return f"<{len(texto)} chars #{huella(texto)}>"
 
 
 async def generar_validada(historial: list[dict], remitente: str, contexto: str | None = None) -> llm.Respuesta:
@@ -209,11 +202,11 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
         try:
             es_nuevo = await store.registrar_entrante(remitente, texto, wa_message_id)
         except Exception:
-            logger.exception("No se pudo guardar el mensaje %s", wa_message_id)
+            logger.exception("No se pudo guardar el mensaje %s", referencia(wa_message_id))
             await sin_guardado(remitente, texto)
             return
         if not es_nuevo:
-            logger.info("Mensaje duplicado %s, se ignora", wa_message_id)
+            logger.info("Mensaje duplicado %s, se ignora", referencia(wa_message_id))
             return
 
         estado = await store.obtener_estado(remitente)
@@ -233,7 +226,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             recientes = [*recientes[-2:], texto]
         # `actual=texto`: el último de la historia puede ser otro mensaje que llegó un instante después
         if await guardrails.detectar_crisis(recientes, actual=texto):
-            logger.warning("Crisis detectada (msg %s)", wa_message_id)
+            logger.warning("Crisis detectada (msg %s)", referencia(wa_message_id))
             await atender_crisis(remitente, nueva=True)
             await metricas.registrar("crisis")
             return
@@ -241,7 +234,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
         try:
             respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado, historial))
         except Exception:
-            logger.exception("Falló la respuesta de Sofía al mensaje %s", wa_message_id)
+            logger.exception("Falló la respuesta de Sofía al mensaje %s", referencia(wa_message_id))
             await telegram.alertar(
                 f"⚠️ No pude responderle a +{remitente}: falló la generación de la respuesta. "
                 f"Escríbele tú.\n\n{_pie(remitente)}"
@@ -250,14 +243,15 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
         cambio = await conversacion_cambio(remitente)
         if cambio:
             logger.warning(
-                "La conversación cambió mientras se generaba la respuesta; no se envía (msg %s)", wa_message_id
+                "La conversación cambió mientras se generaba la respuesta; no se envía (msg %s)",
+                referencia(wa_message_id),
             )
             if cambio["humano_activo"]:
                 await reenviar_a_eduardo(remitente, texto)
             else:
                 await atender_crisis(remitente, nueva=False)
             return
-        logger.info("Sofía responde %s", _desc(respuesta.texto))
+        logger.info("Sofía responde %s", describir(respuesta.texto))
         # El aviso va en la primera respuesta de Sofía, no en la de crisis: ahí estorbaría. Quien empezó
         # con una crisis lo recibe cuando Sofía retome la conversación.
         aviso = "" if estado["aviso_privacidad"] else guardrails.AVISO_PRIVACIDAD.format(url=config.URL_PRIVACIDAD)
@@ -270,7 +264,7 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             if respuesta.derivacion:
                 await derivar(remitente, respuesta.derivacion["motivo"], respuesta.derivacion["resumen"], texto)
     except Exception:
-        logger.exception("Error procesando mensaje %s", wa_message_id)
+        logger.exception("Error procesando mensaje %s", referencia(wa_message_id))
 
 
 async def procesar_audio(remitente: str, mensaje: dict) -> None:
@@ -280,7 +274,7 @@ async def procesar_audio(remitente: str, mensaje: dict) -> None:
         archivo, mime = await whatsapp.descargar_media(mensaje["media_id"])
         texto = await transcripcion.transcribir(archivo, mime)
     except Exception:
-        logger.exception("No se pudo transcribir la nota de voz %s", mensaje["id"])
+        logger.exception("No se pudo transcribir la nota de voz %s", referencia(mensaje["id"]))
         await audio_sin_transcribir(remitente, mensaje["id"])
         return
     await procesar_mensaje(remitente, guardrails.MARCA_AUDIO + texto, mensaje["id"])
@@ -303,7 +297,7 @@ async def audio_sin_transcribir(remitente: str, wa_message_id: str) -> None:
             return
         await enviar(remitente, guardrails.RESPUESTA_AUDIO_FALLIDO)
     except Exception:
-        logger.exception("Error avisando de la nota de voz sin transcribir %s", wa_message_id)
+        logger.exception("Error avisando de la nota de voz sin transcribir %s", referencia(wa_message_id))
 
 
 async def procesar_media(remitente: str, mensaje: dict) -> None:
@@ -312,7 +306,7 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
     contenido = f"[{tipo}] {mensaje['caption']}" if mensaje["caption"] else f"[{tipo}]"
     try:
         if not await store.registrar_entrante(remitente, contenido, mensaje["id"]):
-            logger.info("Mensaje duplicado %s, se ignora", mensaje["id"])
+            logger.info("Mensaje duplicado %s, se ignora", referencia(mensaje["id"]))
             return
 
         nota = f"{mensaje['caption']}\n" if mensaje["caption"] else ""
@@ -322,7 +316,7 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
             extension = mime.split("/")[-1].split(";")[0]
             llego = await telegram.enviar_archivo(archivo, f"{tipo}_{remitente}.{extension}", mime, leyenda)
         except Exception:
-            logger.exception("No se pudo descargar el %s %s", tipo, mensaje["id"])
+            logger.exception("No se pudo descargar el %s %s", tipo, referencia(mensaje["id"]))
             await telegram.alertar(leyenda + "\n⚠️ No se pudo descargar el archivo de WhatsApp.")
         else:
             if not llego:
@@ -344,13 +338,13 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
             await store.activar_humano(remitente, "comprobante")
             await enviar(remitente, guardrails.RESPUESTA_COMPROBANTE)
     except Exception:
-        logger.exception("Error procesando %s %s", tipo, mensaje["id"])
+        logger.exception("Error procesando %s %s", tipo, referencia(mensaje["id"]))
 
 
 async def avisar_fallos(fallos: list[dict]) -> None:
     """Meta acepta un envío y minutos después puede marcarlo fallido; Eduardo debe enterarse."""
     for fallo in fallos:
-        logger.warning("Meta no entregó un mensaje a %s (código %s)", fallo["destino"], fallo["codigo"])
+        logger.warning("Meta no entregó un mensaje a %s (código %s)", referencia(fallo["destino"]), fallo["codigo"])
         if fallo["codigo"] == whatsapp.FUERA_DE_VENTANA:
             motivo = "su último mensaje fue hace más de 24 horas y WhatsApp solo permite plantillas aprobadas"
         else:
@@ -400,16 +394,16 @@ async def recibir(request: Request, tareas: BackgroundTasks):
     recibidos = 0
     for mensaje in mensajes:
         if mensaje["type"] in whatsapp.TIPOS_MEDIA and mensaje["media_id"]:
-            logger.info("Archivo entrante %s (%s)", mensaje["id"], mensaje["type"])
+            logger.info("Archivo entrante %s (%s)", referencia(mensaje["id"]), mensaje["type"])
             tareas.add_task(procesar_media, mensaje["from"], mensaje)
         elif mensaje["type"] == whatsapp.AUDIO and mensaje["media_id"]:
-            logger.info("Nota de voz entrante %s", mensaje["id"])
+            logger.info("Nota de voz entrante %s", referencia(mensaje["id"]))
             tareas.add_task(procesar_audio, mensaje["from"], mensaje)
         elif mensaje["type"] == "text" and mensaje["text"]:
-            logger.info("Mensaje entrante %s %s", mensaje["id"], _desc(mensaje["text"]))
+            logger.info("Mensaje entrante %s %s", referencia(mensaje["id"]), describir(mensaje["text"]))
             tareas.add_task(procesar_mensaje, mensaje["from"], mensaje["text"], mensaje["id"])
         else:
-            logger.info("Mensaje tipo %s no soportado aún (msg %s)", mensaje["type"], mensaje["id"])
+            logger.info("Mensaje tipo %s no soportado aún (msg %s)", mensaje["type"], referencia(mensaje["id"]))
             continue
         recibidos += 1
     return {"status": "recibido" if recibidos else "ignorado"}
