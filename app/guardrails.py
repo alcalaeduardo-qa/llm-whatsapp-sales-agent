@@ -48,16 +48,13 @@ RESPUESTA_RECORDATORIO = (
     "Busca un lugar tranquilo donde puedas escribir y mandar audios con calma."
 )
 
-RESPUESTA_DATOS_BORRADOS = (
-    "Listo, borré tu historial de conversación conmigo. Si vuelves a escribir, empezamos desde cero."
-)
-RESPUESTA_DATOS_NO_BORRADOS = (
-    "No pude borrar tus datos en este momento. Eduardo lo hará personalmente y te confirmará por aquí."
-)
-
 # {url}: config.URL_PRIVACIDAD. Va al pie de la primera respuesta de Sofía y no entra al historial,
 # para que Claude no lo copie en sus mensajes.
-AVISO_PRIVACIDAD = "Aviso de privacidad: {url}\nPara borrar tu conversación escribe BORRAR MIS DATOS."
+AVISO_PRIVACIDAD = (
+    "Aviso de privacidad: {url}\n"
+    "Tu conversación se borra sola después de 90 días sin actividad. "
+    "Si quieres que se borre antes, escribe a sanandoalmaa@gmail.com."
+)
 
 RESPUESTA_RESPALDO = "Gracias por escribirme. Eduardo te escribirá personalmente a la brevedad para darte seguimiento."
 
@@ -88,17 +85,6 @@ _PROMESA_DERIVAR = re.compile(
     r"eduardo te (escribira|contactara|buscara|respondera)|le paso tu caso|le (aviso|comento) a eduardo|"
     r"eduardo se pondra en contacto|eduardo te va a escribir",
 )
-
-
-# Derecho a borrar sus datos (ARCO). Frase exacta para no borrar por accidente una conversación.
-_BORRAR_DATOS = re.compile(r"^(borra|borrar|borren|elimina|eliminar|eliminen) (mis datos|mi informacion|mi historial)$")
-
-
-def es_borrar_mis_datos(texto: str) -> bool:
-    """ "BORRAR MIS DATOS" escrito o dicho en nota de voz, sin importar mayúsculas, acentos ni puntuación."""
-    limpio = normalizar(texto.removeprefix(MARCA_AUDIO))
-    limpio = re.sub(r"[^\w\s]", " ", limpio)
-    return bool(_BORRAR_DATOS.match(" ".join(limpio.split())))
 
 
 def promete_derivar(texto: str) -> bool:

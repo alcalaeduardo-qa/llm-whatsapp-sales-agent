@@ -85,7 +85,7 @@ create extension if not exists pg_cron;
 select cron.schedule('sofia-retencion-90-dias', '0 9 * * *', $$select public.purgar_inactivos(90)$$);
 
 -- Día 9: métricas de operación, una fila por respuesta. Sin teléfono ni contenido a propósito: por eso
--- no entran en BORRAR MIS DATOS ni en la retención de 90 días.
+-- no entran en la retención de 90 días.
 create table if not exists public.metricas (
     id              bigint generated always as identity primary key,
     creado_en       timestamptz not null default now(),
@@ -102,6 +102,6 @@ create index if not exists metricas_creado_en_idx on public.metricas (creado_en 
 
 alter table public.metricas enable row level security;
 
--- Día 9: cuándo recibió la persona el aviso de privacidad (una sola vez). Si pide BORRAR MIS DATOS se
--- borra con su conversación y lo vuelve a recibir si regresa.
+-- Día 9: cuándo recibió la persona el aviso de privacidad (una sola vez). Si la retención de 90 días borra su
+-- conversación, lo vuelve a recibir si regresa.
 alter table public.conversaciones add column if not exists aviso_privacidad_en timestamptz;

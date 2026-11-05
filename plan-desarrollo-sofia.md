@@ -72,7 +72,7 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] Deploy en Railway desde Dockerfile; webhook definitivo en subdominio de sanandoalmaa.com.
 - [x] Tabla `metricas`: latencia, tokens in/out, costo por mensaje, fase detectada.
 - [x] **Retención 90 días:** job diario que borra/anonimiza conversaciones sin actividad >90 días.
-- [x] Comando `BORRAR MIS DATOS` → borra historial y confirma.
+- [x] ~~Comando `BORRAR MIS DATOS`~~ quitado el 5 de noviembre: el borrado es la retención de 90 días y, a petición, por correo.
 - [x] Aviso de privacidad (enlace) en el primer mensaje de Sofía.
 
 ## Día 10 — Presentación
