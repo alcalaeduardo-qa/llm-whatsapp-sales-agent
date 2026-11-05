@@ -70,10 +70,10 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] Dockerfile multi-stage + docker-compose.
 - [x] GitHub Actions: ruff + pytest + evals deterministas en cada PR; evals LLM en `workflow_dispatch`/nightly.
 - [ ] Deploy en Railway desde Dockerfile; webhook definitivo en subdominio de sanandoalmaa.com.
-- [ ] Tabla `metricas`: latencia, tokens in/out, costo por mensaje, fase detectada.
+- [x] Tabla `metricas`: latencia, tokens in/out, costo por mensaje, fase detectada.
 - [x] **Retención 90 días:** job diario que borra/anonimiza conversaciones sin actividad >90 días.
 - [x] Comando `BORRAR MIS DATOS` → borra historial y confirma.
-- [ ] Aviso de privacidad (enlace) en el primer mensaje de Sofía.
+- [x] Aviso de privacidad (enlace) en el primer mensaje de Sofía.
 
 ## Día 10 — Presentación
 - [ ] README bilingüe (EN/ES): problema, arquitectura (Mermaid), features, guardrails, resultados de evals, setup, roadmap.

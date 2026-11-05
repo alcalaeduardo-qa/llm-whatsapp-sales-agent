@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 
-from app import calendario, config
+from app import calendario, config, metricas
 from app.prompt import cargar_prompt
 from app.scheduling import formatear_opciones, horas_equivalentes
 from app.text import limpiar_texto
@@ -122,6 +122,7 @@ async def generar_respuesta(
         tools=[HERRAMIENTA_DERIVAR],
         output_config={"effort": config.SOFIA_EFFORT},
     )
+    metricas.sumar_uso(config.CLAUDE_MODEL, respuesta.usage)
     if respuesta.stop_reason == "max_tokens":
         logger.warning("Respuesta cortada por límite de tokens")
     logger.info(
@@ -148,6 +149,7 @@ async def clasificar_crisis(mensajes: list[str]) -> bool:
         system=PROMPT_CLASIFICADOR,
         messages=[{"role": "user", "content": "<mensajes>\n" + "\n".join(mensajes) + "\n</mensajes>"}],
     )
+    metricas.sumar_uso(config.CLAUDE_MODEL_CLASIFICADOR, respuesta.usage)
     texto = "".join(b.text for b in respuesta.content if b.type == "text").strip().upper()
     if respuesta.stop_reason != "end_turn" or not texto.startswith((ETIQUETA_RIESGO, ETIQUETA_NORMAL)):
         # Sin veredicto válido no se asume NORMAL: quien llama recurre a la lista de señales

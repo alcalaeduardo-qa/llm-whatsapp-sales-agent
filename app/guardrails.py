@@ -55,6 +55,10 @@ RESPUESTA_DATOS_NO_BORRADOS = (
     "No pude borrar tus datos en este momento. Eduardo lo hará personalmente y te confirmará por aquí."
 )
 
+# {url}: config.URL_PRIVACIDAD. Va al pie de la primera respuesta de Sofía y no entra al historial,
+# para que Claude no lo copie en sus mensajes.
+AVISO_PRIVACIDAD = "Aviso de privacidad: {url}\nPara borrar tu conversación escribe BORRAR MIS DATOS."
+
 RESPUESTA_RESPALDO = "Gracias por escribirme. Eduardo te escribirá personalmente a la brevedad para darte seguimiento."
 
 

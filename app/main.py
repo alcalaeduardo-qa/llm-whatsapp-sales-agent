@@ -7,7 +7,19 @@ from datetime import datetime
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
-from app import calendario, comandos, config, guardrails, llm, recordatorios, store, telegram, transcripcion, whatsapp
+from app import (
+    calendario,
+    comandos,
+    config,
+    guardrails,
+    llm,
+    metricas,
+    recordatorios,
+    store,
+    telegram,
+    transcripcion,
+    whatsapp,
+)
 from app.scheduling import dia_y_fecha
 from app.text import huella, normalizar_numero
 
@@ -69,9 +81,10 @@ async def generar_validada(historial: list[dict], remitente: str, contexto: str 
     )
 
 
-async def enviar(remitente: str, texto: str) -> None:
+async def enviar(remitente: str, texto: str, pie: str = "") -> None:
+    """Manda el mensaje y lo guarda en el historial. El pie llega a la persona pero no se guarda."""
     await store.guardar_respuesta(remitente, texto)
-    await whatsapp.enviar_texto(normalizar_numero(remitente), texto)
+    await whatsapp.enviar_texto(normalizar_numero(remitente), f"{texto}\n\n{pie}" if pie else texto)
 
 
 def _pie(remitente: str) -> str:
@@ -155,6 +168,7 @@ async def borrar_datos(remitente: str) -> None:
 
 
 async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> None:
+    metricas.iniciar()
     try:
         if guardrails.es_borrar_mis_datos(texto):
             await borrar_datos(remitente)
@@ -177,12 +191,19 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
         if await guardrails.detectar_crisis(recientes):
             logger.warning("Crisis detectada (msg %s)", wa_message_id)
             await atender_crisis(remitente, nueva=True)
+            await metricas.registrar("crisis")
             return
 
         respuesta = await generar_validada(historial, remitente, await contexto_de(remitente, estado, historial))
         logger.info("Sofía responde %s", _desc(respuesta.texto))
+        # El aviso va en la primera respuesta de Sofía, no en la de crisis: ahí estorbaría. Quien empezó
+        # con una crisis lo recibe cuando Sofía retome la conversación.
+        aviso = "" if estado["aviso_privacidad"] else guardrails.AVISO_PRIVACIDAD.format(url=config.URL_PRIVACIDAD)
         try:
-            await enviar(remitente, respuesta.texto)
+            await enviar(remitente, respuesta.texto, aviso)
+            if aviso:
+                await store.marcar_aviso_privacidad(remitente)
+            await metricas.registrar(metricas.fase_de(respuesta.texto, respuesta.derivacion))
         finally:
             if respuesta.derivacion:
                 await derivar(remitente, respuesta.derivacion["motivo"], respuesta.derivacion["resumen"], texto)

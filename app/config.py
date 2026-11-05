@@ -60,6 +60,11 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 # Secreto que Telegram manda en cada update; se elige libremente (A-Z, a-z, 0-9, _ y -).
 TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 
+# Enlace del aviso de privacidad que Sofía comparte una vez con cada persona.
+URL_PRIVACIDAD = os.getenv(
+    "URL_PRIVACIDAD", "https://github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent/blob/main/PRIVACY.md"
+)
+
 # En producción no se registra el contenido de los mensajes (datos sensibles).
 LOG_CONTENIDO = os.getenv("LOG_CONTENIDO", "false").lower() == "true"
 
