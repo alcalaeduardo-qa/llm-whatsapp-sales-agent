@@ -25,17 +25,18 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 5 | Agenda real con iCloud | ✅ en `main` (PR #7), probado en vivo |
 | 6 | Audio (transcripción con Groq) | ✅ en `main` (PR #8), probado en vivo |
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
-| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ✅ En `main` (PRs #11–#16) y **en producción en Railway** desde el 4 de noviembre, con subdominio |
+| 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ✅ En `main` (PRs #11–#17) y **en producción en Railway** desde el 4 de noviembre, con subdominio |
+| — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **477 pasan, cobertura 99 %** (mínimo exigido 80 %).
+Tests: **496 pasan, cobertura 99 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`dia-9-reconexion-icloud`** (desde `main` con el PR #16 integrado).
-- Rama vieja `dia-4-derivacion` (local y en GitHub) ya está integrada en `main`; falta borrarla (Eduardo debe autorizarlo).
+- Rama actual: **`main`**, con todo lo anterior integrado (último merge: PR #21). No hay PR abiertos.
+- Ramas ya integradas que siguen sin borrar (Eduardo debe autorizarlo): `dia-9-railway`, `dia-9-cierre`, `dia-9-metricas-aviso`, `dia-9-reconexion-icloud`, `quitar-borrar-mis-datos`, `auditoria-crisis-tests`, `auditoria-pagos` y `auditoria-logs-operador`, locales y en GitHub.
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
 
@@ -100,17 +101,23 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 - Horario: sesiones de **1 hora**, inicios de **2 a 7 PM hora México, los 7 días** (fines de semana incluidos, a propósito).
 - **Nunca se aparta un horario sin pago.** Flujo: Sofía ofrece horarios libres → la persona paga y manda comprobante → derivación → Eduardo valida → **Eduardo ordena `/reservar`** → Sofía crea el evento y confirma por WhatsApp. La IA nunca reserva por su cuenta (se descartó la tool `apartar_horario` y `/confirmar` del plan).
 - Calendario: el del iPhone, **iCloud, calendario "Casa"** (no Google Calendar). **Solo "Casa"** bloquea horarios; los otros calendarios de iCloud ("Trabajo", "Calendario") se ignoran a propósito.
-- **Recordatorios (pendiente de implementar):**
+- **Recordatorios (implementados en el Día 5):**
   - A la persona: WhatsApp **10 minutos antes** de la sesión.
   - A Eduardo: alertas del calendario **10 minutos antes y a la hora** de la sesión (VALARM en el evento que crea `/reservar`).
 - Eduardo responde a las personas **desde Telegram** (sale por el número de Sofía).
 - Alertas de crisis por Telegram.
 - Prompt real fuera del repo (público).
+- **BORRAR MIS DATOS se quitó** (5 de noviembre): el borrado es la retención de 90 días y, a petición, por correo.
+- Railway sigue en **Trial** por decisión de Eduardo, con **Auto deploy encendido**.
 - Commits solo con el correo **alcala.edugar@gmail.com** (configurado en el repo).
 
 ---
 
-## 6. Operación local
+## 6. Operación
+
+**Producción:** Railway (`valiant-vitality`), dominio `https://sofia.sanandoalmaa.com`. Los webhooks de Meta y Telegram apuntan ahí. Para ver el despliegue sin entrar a Railway: `gh api repos/alcalaeduardo-qa/llm-whatsapp-sales-agent/deployments`. El navegador integrado de Claude pierde la sesión de Railway.
+
+### Local (solo desarrollo o para volver atrás)
 
 ```powershell
 cd C:\Users\Admin\Desktop\claude\sofia
@@ -135,6 +142,9 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - Al terminar cada día: marcar las casillas en `plan-desarrollo-sofia.md`.
 - Nunca pedir ni pegar secretos en el chat: Eduardo los pone directo en `.env`.
 - Probar en vivo después de los tests: varios bugs solo aparecieron así.
+- **Auto deploy:** cada merge a `main` se publica solo, sin esperar al CI. Merge solo con los checks en verde, y las migraciones de Supabase antes del merge.
+- Claude pide confirmación antes de cada commit, PR y publicación; los reportes de la auditoría **no se suben al repo** (describen cómo atacar a Sofía).
+- Los cambios de la auditoría se hacen así: primero tests que fallan (confirman la pista), luego la corrección, luego PR.
 
 ---
 
@@ -153,6 +163,10 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - **Clasificador de crisis:** con etiquetas SI/NO, el modelo contestaba la pregunta de la persona ("¿hablo con una IA?" → "Sí") y contaba como crisis. Ahora usa RIESGO/NORMAL y recibe los mensajes en `<mensajes>`.
 - **"juntos":** rechazarlo en el validador hacía que Claude lo repitiera y la conversación terminara en el respaldo. Se reemplaza por "en conjunto" en `limpiar_texto`. El largo es regla suave (se envía si es la única falla).
 - Los tests tienen un candado (`tests/conftest.py`): si un test intenta usar el Supabase, el Claude o el iCloud reales, falla. Cada función nueva de `store` debe tener su doble en `StoreFalso`.
+- **Los `wamid` de Meta llevan el teléfono codificado:** no se registran tal cual (`text.referencia`). Con `LOG_CONTENIDO=false` los logs no llevan texto, teléfonos ni cuerpos de error (`text.describir`).
+- **Secrets, no Variables, en GitHub:** los dos valores se crearon primero como Variables (sin cifrar) y se borraron. Los evals del CI leen Secrets.
+- Los validadores del skill de auditoría de Cloudflare no corren en Windows (exigen `O_NOFOLLOW`); se usó una copia sin esa protección.
+- Los evals del CI varían unos 3 casos entre corridas. `inyeccion-2` y `prompt-2` fallan siempre; `objecion-mx-4` falla de vez en cuando por la regla de la palabra "psicólogos".
 - Meta manda los móviles de México como `521…`; para enviar se usa `52…` (`normalizar_numero`). En comandos, `numero_meta` hace lo inverso.
 
 ---
@@ -178,10 +192,10 @@ Resultados: 32.8 % → 46.9 % → 57.8 % → **89.1 %** de casos pasan; red-team
 
 Pendiente del Día 7:
 1. ~~PR #9~~ fusionado (3 de noviembre). README bilingüe agregado (rama `docs-readme`).
-2. Hallazgos abiertos (ver `docs/FMEA.md`): hora equivalente mal calculada para otros países (prioridad 1: calcularla en código), "estás lista", enlace de pago antes de elegir horario, no aceptar un horario válido propuesto, guía de apego no ofrecida a alguien de EE. UU.
+2. Hallazgos abiertos (ver `docs/FMEA.md`): ~~hora equivalente mal calculada para otros países~~ (resuelta en el Día 9), "estás lista", enlace de pago antes de elegir horario, no aceptar un horario válido propuesto, guía de apego no ofrecida a alguien de EE. UU.
 3. Agregar casos de notas de voz al dataset.
 
-### Día 9 (en curso)
+### Día 9 (completo)
 - **CI** (`.github/workflows/ci.yml`): en cada PR y push a `main`, ruff + 389 tests (sin secretos) y evals sin juez (`--minimo 85`, ~0.11 USD). `evals-juez.yml`: corrida completa con juez solo a mano (Actions → Run workflow, ~2.5 USD).
 - **Secretos que Eduardo debe crear en GitHub** (Settings → Secrets and variables → Actions): `ANTHROPIC_API_KEY` y `SOFIA_PROMPT` (contenido completo de `prompts/sofia.md`). Sin ellos los evals se omiten o usan la plantilla pública con un aviso.
 - **Hora equivalente** en código (`scheduling.horas_equivalentes`, 11 zonas con `zoneinfo`); Claude la recibe en `NOTA_HORAS_EQUIVALENTES`. Verificado: Houston 3 PM = 3 PM México en noviembre, España +7 h.
@@ -197,11 +211,8 @@ Pendiente del Día 7:
 - **Cortes de iCloud:** la revisión de recordatorios falló el 5 de noviembre a las 04:33 y 05:35 UTC, al menos la primera por `HTTP/3 connection terminated`. `calendario._con_reintento` reintenta una vez con una conexión nueva y deja un aviso `iCloud falló` en el log. Revisar que deje de aparecer `Falló la revisión de recordatorios`.
 - Falta: elegir plan de Railway antes de que se acabe el Trial (Eduardo decidió seguir en Trial por ahora).
 
-### Días 9–10
-Seguir `plan-desarrollo-sofia.md`. Notas para cuando lleguen:
-- Día 9 (CI): correr `pytest` y `python -m evals.run --sin-juez` en cada PR. Los evals sin juez llaman a Claude (necesitan `ANTHROPIC_API_KEY` como secreto) y usan el prompt de ejemplo si el real no está.
-- Día 9 (deploy): `prompts/sofia.md` no viene en el repo → proveerlo en el servidor (archivo secreto o variable). El webhook de Telegram y el de Meta cambian a la URL definitiva.
-- Día 10 (PRIVACY): mencionar que Telegram recibe mensajes y comprobantes para Eduardo, que iCloud guarda el teléfono en el evento y que Groq recibe las notas de voz para transcribirlas.
+### Día 10
+Seguir `plan-desarrollo-sofia.md` (README bilingüe con Mermaid, demo, LICENSE, topics, repo fijado, post de LinkedIn). `PRIVACY.md` ya describe proveedores, retención de 90 días y borrado por correo, pero **falta la revisión legal**.
 
 ### Auditoría de seguridad (5 de noviembre de 2026)
 Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agentes, solo lectura de código, sin el prompt real). Resultado: **0 hallazgos confirmados, 22 pistas por validar, 1 descartada**. Los reportes (`REPORT.md`, `NEEDS-VALIDATION.md`) describen cómo atacar a Sofía: están en `C:\Users\Admin\security-audit-skill\sofia\run-1\`, **fuera del repo, no subirlos**.
@@ -216,3 +227,14 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).
 - Pasar del número de prueba de Meta a un número real (nombre visible aprobado, método de pago; la verificación del negocio no es obligatoria para empezar).
+
+---
+
+## 10. Para el próximo chat: qué sigue, en orden
+
+1. **Pruebas en vivo por WhatsApp (Eduardo)**, que ningún test cubre: una crisis explícita, una imagen con pie de crisis, una nota de voz durante una pausa, y una conversación hasta el pago comprobando que el enlace de Stripe de Railway coincida **exacto** con el que escribe Sofía (si no, la persona recibe el mensaje de respaldo en lugar del cobro).
+2. **Revisar en los logs de Railway** que ya no aparezca `Falló la revisión de recordatorios` (los cortes de iCloud) y que los logs no lleven teléfonos ni identificadores.
+3. **Auditoría:** corregir el resto de las pistas del reporte privado (`C:/Users/Admin/security-audit-skill/sofia/run-1/NEEDS-VALIDATION.md`; no subirlo al repo), una a una con el método de la sección 7. Después, probar el prompt real con ataques de inyección (DeepTeam o promptfoo) y correr escáneres (gitleaks, pip-audit, trivy). El prompt real no se auditó.
+4. **Antes de atender a personas reales:** número real de WhatsApp (el de prueba solo escribe a la lista de Meta), plantilla de recordatorio para fuera de la ventana de 24 h, plan de Railway (el Trial vence a los 30 días o con 5 USD, desde el 4 de noviembre), revisión legal de `PRIVACY.md`, y decidir si se cambia la clave de Anthropic (estuvo un rato sin cifrar en Variables de GitHub).
+5. **Día 10** (portafolio): ver arriba.
+6. Pequeños: borrar las ramas ya integradas (con autorización), revisar la regla de la palabra "psicólogos" que a veces manda a Eduardo una conversación que no lo necesitaba, y probar en vivo el recordatorio de 10 minutos antes.
