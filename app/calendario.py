@@ -39,13 +39,28 @@ def configurado() -> bool:
 
 
 @lru_cache
-def _calendario():
+def _abrir_calendario():
     import caldav
 
     cliente = caldav.DAVClient(
         url=URL_ICLOUD, username=config.ICLOUD_USUARIO, password=config.ICLOUD_PASSWORD_APP, timeout=20
     )
     return cliente.principal().calendar(name=config.ICLOUD_CALENDARIO)
+
+
+def _calendario():
+    return _abrir_calendario()
+
+
+def _con_reintento(operacion):
+    """En producción se vieron cortes de la conexión HTTP/3 con iCloud, y el cliente guardado puede quedar muerto.
+    Se reintenta una vez con una conexión nueva; si vuelve a fallar, el error llega a quien llamó."""
+    try:
+        return operacion()
+    except Exception as e:
+        logger.warning("iCloud falló (%s); se reintenta con una conexión nueva", type(e).__name__)
+        _abrir_calendario.cache_clear()
+        return operacion()
 
 
 def _a_hora_mx(valor) -> datetime:
@@ -70,9 +85,12 @@ def intervalo_ocupado(componente) -> Intervalo | None:
     return inicio, fin
 
 
+def _buscar_eventos(desde: datetime, hasta: datetime) -> list:
+    return _con_reintento(lambda: _calendario().search(event=True, start=desde, end=hasta, expand=True))
+
+
 def _leer_ocupados(desde: datetime, hasta: datetime) -> list[Intervalo]:
-    eventos = _calendario().search(event=True, start=desde, end=hasta, expand=True)
-    intervalos = (intervalo_ocupado(e.icalendar_component) for e in eventos)
+    intervalos = (intervalo_ocupado(e.icalendar_component) for e in _buscar_eventos(desde, hasta))
     return sorted(i for i in intervalos if i)
 
 
@@ -87,7 +105,7 @@ async def ocupados(desde: datetime, usar_cache: bool = True) -> list[Intervalo]:
 
 def _leer_sesiones(desde: datetime, hasta: datetime) -> list[tuple[str, datetime, str]]:
     sesiones = []
-    for e in _calendario().search(event=True, start=desde, end=hasta, expand=True):
+    for e in _buscar_eventos(desde, hasta):
         componente = e.icalendar_component
         encontrado = _TITULO_SESION.match(str(componente.get("SUMMARY", "")))
         if encontrado:
@@ -152,7 +170,9 @@ def _crear_evento(inicio: datetime, fin: datetime, telefono: str) -> None:
         alarma.add("trigger", timedelta(minutes=-minutos_antes))
         evento.add_component(alarma)
     calendario_ics.add_component(evento)
-    _calendario().add_event(calendario_ics.to_ical().decode("utf-8"))
+    ics = calendario_ics.to_ical().decode("utf-8")
+    # Mismo UID en el reintento: si el primer intento sí llegó a iCloud, no se crea una sesión duplicada
+    _con_reintento(lambda: _calendario().add_event(ics))
 
 
 async def reservar(inicio: datetime, telefono: str) -> datetime:

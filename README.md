@@ -157,7 +157,7 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 ### Roadmap
 
 - [x] Webhook seguro, memoria e idempotencia
-- [x] Tests base (448, cobertura 98 %)
+- [x] Tests base (454, cobertura 98 %)
 - [x] Guardrails de crisis y validador de salida
 - [x] Derivación a Eduardo y modo humano por Telegram
 - [x] Agenda real con iCloud, reservas y recordatorios
@@ -166,7 +166,7 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 - [x] CI con GitHub Actions: lint, tests y evals deterministas en cada PR
 - [x] Docker: imagen multi-etapa verificada en el CI (arranca y responde `/health`)
 - [x] Hora equivalente calculada en código para otros países
-- [ ] Deploy en Railway
+- [x] Deploy en Railway con dominio propio
 - [x] BORRAR MIS DATOS y retención de datos a 90 días
 - [x] Métricas de costo y latencia por respuesta, sin datos de la persona
 - [x] Aviso de privacidad en la primera respuesta
