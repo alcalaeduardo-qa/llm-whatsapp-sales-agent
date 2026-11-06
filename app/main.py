@@ -101,7 +101,7 @@ async def reenviar_a_eduardo(remitente: str, texto: str) -> None:
     if guardrails.crisis_explicita(texto):
         prefijo = "🚨 Posible crisis, Sofía le compartió la Línea de la Vida.\n"
         try:
-            await enviar(remitente, guardrails.RESPUESTA_CRISIS)
+            await enviar(remitente, guardrails.respuesta_crisis(remitente))
         except Exception:
             logger.exception("No se pudo enviar la respuesta de crisis en modo humano")
     elif await guardrails.detectar_crisis([texto]):
@@ -111,24 +111,18 @@ async def reenviar_a_eduardo(remitente: str, texto: str) -> None:
     await telegram.alertar(f"{prefijo}💬 +{remitente}\n{texto}\n\n{_pie(remitente)}")
 
 
-async def atender_crisis(remitente: str, nueva: bool) -> None:
-    """Respuesta fija (no pasa por el modelo), pausa de venta y alerta a Eduardo."""
+async def atender_crisis(remitente: str, nueva: bool, texto: str = "") -> None:
+    """Respuesta fija (no pasa por el modelo) y pausa de venta. A Eduardo solo se le confirma que el mensaje salió:
+    la persona no debe esperar que alguien la contacte."""
+    alerta = None
     if nueva:
         pausada = await store.pausar_venta(remitente, "crisis")
-        respuesta = guardrails.RESPUESTA_CRISIS
-        if pausada:
-            alerta = (
-                f"🚨 Posible crisis de +{remitente}. Sofía detuvo la venta y compartió la Línea de la Vida. "
-                "Contesta a este mensaje para escribirle."
-            )
-        else:
-            alerta = (
-                f"🚨 Posible crisis de +{remitente}. Sofía compartió la Línea de la Vida, pero NO pudo pausar la venta "
-                f"(falló la base de datos): usa /pausar {remitente}. Contesta a este mensaje para escribirle."
-            )
+        respuesta = guardrails.respuesta_crisis(remitente)
+        alerta = f"ℹ️ Sofía envió el mensaje de crisis a +{remitente}."
+        if not pausada:
+            alerta += f" NO pudo pausar la venta (falló la base de datos): usa /pausar {remitente}."
     else:
-        respuesta = guardrails.RESPUESTA_PAUSA
-        alerta = f"Nuevo mensaje de +{remitente}, conversación en pausa por crisis. Sofía respondió con contención."
+        respuesta = guardrails.respuesta_pausa(remitente, texto)
 
     try:
         try:
@@ -138,7 +132,18 @@ async def atender_crisis(remitente: str, nueva: bool) -> None:
             logger.exception("Falló el envío o el guardado de la respuesta de crisis; se reintenta directo")
             await whatsapp.enviar_texto(normalizar_numero(remitente), respuesta)
     finally:
-        await telegram.alertar(alerta)
+        if alerta:
+            await telegram.alertar(alerta)
+
+
+async def aceptar_aviso(remitente: str, texto: str, wa_message_id: str) -> None:
+    """Solo la persona quita el bloqueo, y queda el respaldo. Si no se pudo guardar, el bloqueo sigue."""
+    registrada = await store.registrar_aceptacion(remitente, texto, wa_message_id, guardrails.VERSION_AVISO)
+    if not registrada or not await store.reanudar(remitente):
+        await atender_crisis(remitente, nueva=False)
+        return
+    await enviar(remitente, guardrails.RESPUESTA_ACEPTADO)
+    await telegram.alertar(f"ℹ️ +{remitente} aceptó el aviso de coaching; quedó registrado.")
 
 
 async def estado_desconocido(remitente: str, texto: str) -> None:
@@ -158,7 +163,7 @@ async def sin_guardado(remitente: str, texto: str) -> None:
     espera a la base de datos."""
     if await guardrails.detectar_crisis([texto]):
         try:
-            await whatsapp.enviar_texto(normalizar_numero(remitente), guardrails.RESPUESTA_CRISIS)
+            await whatsapp.enviar_texto(normalizar_numero(remitente), guardrails.respuesta_crisis(remitente))
         except Exception:
             logger.exception("No se pudo enviar la respuesta de crisis directa")
         await telegram.alertar(
@@ -187,6 +192,8 @@ async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) 
     notas = []
     if estado["atendida_por_eduardo"]:
         notas.append(llm.NOTA_DEVUELTA)
+    if guardrails.hubo_crisis(historial):
+        notas.append(llm.NOTA_TRAS_CRISIS)
     if any(m["role"] == "user" and m["content"].startswith(guardrails.MARCA_AUDIO) for m in historial):
         notas.append(llm.NOTA_AUDIO)
     sesiones = await calendario.sesiones_de(remitente, datetime.now(config.ZONA_MX))
@@ -217,7 +224,10 @@ async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> No
             await reenviar_a_eduardo(remitente, texto)
             return
         if estado["venta_pausada"]:
-            await atender_crisis(remitente, nueva=False)
+            if texto.strip() == guardrails.PALABRA_ACEPTAR:
+                await aceptar_aviso(remitente, texto, wa_message_id)
+            else:
+                await atender_crisis(remitente, nueva=False, texto=texto)
             return
 
         historial = await store.obtener_historial(remitente)

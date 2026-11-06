@@ -47,11 +47,9 @@ def test_segundo_mensaje_lleva_historial(entorno):
     mensajes = entorno["claude"].peticiones[1]["messages"]
     assert [m["role"] for m in mensajes] == ["user", "assistant", "user"]
     assert mensajes[-1]["content"] == "Tengo ansiedad"
-    # El clasificador ve los últimos mensajes de la persona, no solo el actual
-    assert (
-        entorno["claude"].clasificaciones[1]["messages"][0]["content"]
-        == "<mensajes>\nHola\nTengo ansiedad\n</mensajes>"
-    )
+    # El clasificador ve el último mensaje de Sofía y los últimos de la persona, no solo el actual
+    leido = entorno["claude"].clasificaciones[1]["messages"][0]["content"]
+    assert "[Sofía] " in leido and leido.endswith("Hola\nTengo ansiedad\n</mensajes>")
 
 
 def test_evento_de_estado_no_llama_a_nadie(entorno):
@@ -105,7 +103,7 @@ def test_crisis_explicita_respuesta_fija_pausa_y_alerta(entorno):
     assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_CRISIS]
     assert entorno["store"].pausadas == {"5214931234567": "crisis"}
     (alerta,) = _alertas(entorno["telegram"])
-    assert "Posible crisis de +5214931234567" in alerta
+    assert "mensaje de crisis a +5214931234567" in alerta
     assert entorno["store"].filas[-1] == {
         "telefono": "5214931234567",
         "rol": "assistant",
@@ -141,7 +139,7 @@ def test_conversacion_en_pausa_no_vuelve_a_vender(entorno):
     assert entorno["claude"].peticiones == []
     assert entorno["claude"].clasificaciones == []
     assert _enviados(entorno["meta"]) == [guardrails.RESPUESTA_CRISIS, guardrails.RESPUESTA_PAUSA]
-    assert "conversación en pausa" in _alertas(entorno["telegram"])[1]
+    assert len(_alertas(entorno["telegram"])) == 1  # solo la confirmación del primer mensaje
 
 
 def test_crisis_se_atiende_aunque_falle_telegram(entorno):

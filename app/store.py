@@ -166,6 +166,22 @@ async def _actualizar(telefono: str, campos: dict, que: str) -> bool:
         return False
 
 
+async def registrar_aceptacion(telefono: str, texto: str, wa_message_id: str, version_aviso: str) -> bool:
+    """Respaldo de que la persona aceptó el aviso. Sin registro no se quita el bloqueo."""
+
+    def insertar() -> None:
+        _cliente().table("aceptaciones_aviso").insert(
+            {"telefono": telefono, "texto": texto, "wa_message_id": wa_message_id, "version_aviso": version_aviso}
+        ).execute()
+
+    try:
+        await asyncio.to_thread(insertar)
+        return True
+    except Exception:
+        logger.exception("No se pudo registrar la aceptación del aviso")
+        return False
+
+
 async def pausar_venta(telefono: str, motivo: str) -> bool:
     campos = {"venta_pausada": True, "motivo_pausa": motivo, "pausada_en": _ahora()}
     return await _actualizar(telefono, campos, f"pausar la venta (motivo {motivo})")
