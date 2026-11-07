@@ -89,6 +89,12 @@ NOTA_AUDIO = (
 )
 
 # {cuando}: "martes 3 de noviembre a las 3 PM" (o varias unidas con " y el ")
+NOTA_SIN_RESERVA = (
+    "SIN SESIÓN RESERVADA\n"
+    "Esta persona no tiene ninguna sesión reservada en el calendario, aunque el historial diga que pagó o que el "
+    "pago se recibió. Nunca digas que su sesión o su horario están confirmados, apartados o agendados. Si habla de "
+    "su pago o su sesión, dile que Eduardo le confirmará la reserva."
+)
 NOTA_SESION_RESERVADA = (
     "SESIÓN YA RESERVADA\n"
     "Esta persona ya pagó y tiene sesión reservada con Eduardo el {cuando} hora México, según su calendario. "

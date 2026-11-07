@@ -32,6 +32,7 @@ logger = logging.getLogger("sofia")
 @asynccontextmanager
 async def ciclo_de_vida(_app: FastAPI):
     """Con el calendario configurado, revisa cada minuto si toca mandar recordatorios."""
+    await telegram.preparar_bot()
     tarea = asyncio.create_task(recordatorios.bucle()) if calendario.configurado() else None
     if tarea is None:
         logger.warning("iCloud sin configurar: no se enviarán recordatorios de sesión")
@@ -200,6 +201,8 @@ async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) 
     if sesiones:
         cuando = " y el ".join(f"{dia_y_fecha(s.date())} a las {s.strftime('%I').lstrip('0')} PM" for s in sesiones)
         notas.append(llm.NOTA_SESION_RESERVADA.format(cuando=cuando))
+    else:
+        notas.append(llm.NOTA_SIN_RESERVA)
     return "\n\n".join(notas) or None
 
 
@@ -319,17 +322,19 @@ async def procesar_media(remitente: str, mensaje: dict) -> None:
 
         nota = f"{mensaje['caption']}\n" if mensaje["caption"] else ""
         leyenda = f"🧾 +{remitente} envió un {tipo} (posible comprobante)\n{nota}{_pie(remitente)}"
+        botones = comandos.botones_comprobante(remitente)
         try:
             archivo, mime = await whatsapp.descargar_media(mensaje["media_id"])
             extension = mime.split("/")[-1].split(";")[0]
-            llego = await telegram.enviar_archivo(archivo, f"{tipo}_{remitente}.{extension}", mime, leyenda)
+            llego = await telegram.enviar_archivo(archivo, f"{tipo}_{remitente}.{extension}", mime, leyenda, botones)
         except Exception:
             logger.exception("No se pudo descargar el %s %s", tipo, referencia(mensaje["id"]))
-            await telegram.alertar(leyenda + "\n⚠️ No se pudo descargar el archivo de WhatsApp.")
+            await telegram.alertar(leyenda + "\n⚠️ No se pudo descargar el archivo de WhatsApp.", botones)
         else:
             if not llego:
                 await telegram.alertar(
-                    leyenda + "\n⚠️ Telegram no recibió el archivo: revísalo en WhatsApp o pídele que lo reenvíe."
+                    leyenda + "\n⚠️ Telegram no recibió el archivo: revísalo en WhatsApp o pídele que lo reenvíe.",
+                    botones,
                 )
 
         estado = await store.obtener_estado(remitente)
