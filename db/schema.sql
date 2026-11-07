@@ -105,3 +105,18 @@ alter table public.metricas enable row level security;
 -- Día 9: cuándo recibió la persona el aviso de privacidad (una sola vez). Si la retención de 90 días borra su
 -- conversación, lo vuelve a recibir si regresa.
 alter table public.conversaciones add column if not exists aviso_privacidad_en timestamptz;
+
+-- Respaldo de que la persona aceptó el aviso de coaching tras una crisis. No entra en la retención de 90 días a
+-- propósito: es un registro de aceptación, y su plazo debe definirse en la revisión legal.
+create table if not exists public.aceptaciones_aviso (
+    id             bigint generated always as identity primary key,
+    telefono       text        not null,
+    texto          text        not null,
+    wa_message_id  text        not null unique,
+    version_aviso  text        not null,
+    aceptado_en    timestamptz not null default now()
+);
+
+create index if not exists aceptaciones_aviso_telefono_idx on public.aceptaciones_aviso (telefono);
+
+alter table public.aceptaciones_aviso enable row level security;

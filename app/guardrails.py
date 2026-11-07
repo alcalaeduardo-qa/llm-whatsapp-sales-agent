@@ -10,20 +10,119 @@ logger = logging.getLogger("sofia.guardrails")
 
 LINEA_DE_LA_VIDA = "800 911 2000"
 
-RESPUESTA_CRISIS = (
-    "Lo que me cuentas es muy serio y me importa que estés a salvo. "
-    "Ahora mismo lo más importante eres tú, no una sesión.\n\n"
-    f"Si estás en México llama hoy a la Línea de la Vida al {LINEA_DE_LA_VIDA}, "
-    "es gratuita, confidencial y atiende las 24 horas. "
-    "Si estás en otro país, llama a tu número local de emergencias.\n\n"
-    "Le aviso a Eduardo para que te escriba personalmente. No estás en esto sin compañía."
+# Líneas de ayuda por país, con fuente revisada el 5 de noviembre de 2026. El modelo nunca las escribe. Un país sin
+# entrada (fuentes contradictorias o sin confirmar) recibe el texto genérico: mejor eso que un número equivocado.
+LINEAS_DE_AYUDA = {
+    "México": f"la Línea de la Vida al {LINEA_DE_LA_VIDA}, gratuita y disponible las 24 horas",
+    "Estados Unidos": "el 988 por llamada o texto, las 24 horas. En español marca 988 y oprime 2, "
+    "o manda AYUDA por texto al 988",
+    "Puerto Rico": "la Línea PAS al 1 800 981 0023 o al 988",
+    "España": "la línea 024, gratuita y confidencial. En una emergencia vital llama al 112",
+    "Chile": "la línea *4141, gratuita y disponible las 24 horas",
+    "Argentina": "el Centro de Asistencia al Suicida al 135 o al 011 5275 1135",
+    "Uruguay": "la Línea Vida al 0800 0767, o al *0767 desde celular",
+    "Ecuador": "la línea 171 opción 6, de 7 AM a 8 PM",
+    "Perú": "la línea 113 opción 5",
+    "Colombia": "la línea 106 si estás en Bogotá. En una emergencia llama al 123",
+}
+# Prefijo telefónico → país; gana el más largo. None: comparte el +1 pero no se usa la línea de Estados Unidos.
+_PAIS_POR_PREFIJO = {
+    "52": "México",
+    "1": "Estados Unidos",
+    "1787": "Puerto Rico",
+    "1939": "Puerto Rico",
+    "1809": None,
+    "1829": None,
+    "1849": None,
+    "34": "España",
+    "56": "Chile",
+    "54": "Argentina",
+    "598": "Uruguay",
+    "593": "Ecuador",
+    "51": "Perú",
+    "57": "Colombia",
+}
+# Países que Sofía reconoce al preguntar. Los que no tienen línea reciben el texto genérico.
+_PAISES = re.compile(
+    r"\b(mexico|estados unidos|usa|eeuu|ee uu|united states|puerto rico|espana|chile|argentina|uruguay|ecuador|peru"
+    r"|colombia|venezuela|bolivia|paraguay|brasil|guatemala|honduras|el salvador|nicaragua|costa rica|panama|cuba"
+    r"|republica dominicana|canada)\b"
 )
+_NOMBRE_DE_PAIS = {
+    "mexico": "México",
+    "estados unidos": "Estados Unidos",
+    "usa": "Estados Unidos",
+    "eeuu": "Estados Unidos",
+    "ee uu": "Estados Unidos",
+    "united states": "Estados Unidos",
+    "puerto rico": "Puerto Rico",
+    "espana": "España",
+    "peru": "Perú",
+}
 
-RESPUESTA_PAUSA = (
-    "Te leo. Eduardo ya está enterado y te escribirá personalmente.\n\n"
-    f"Si sientes que estás en peligro llama ahora a la Línea de la Vida al {LINEA_DE_LA_VIDA}, "
-    "es gratuita y atiende las 24 horas, o a tu número local de emergencias."
+_INICIO_CRISIS = "Lo que me cuentas es muy serio"
+_INICIO_PAUSA = "Te leo."
+_PELIGRO = "Si estás en peligro inmediato, ve al hospital más cercano o llama a emergencias."
+_RED_DE_APOYO = (
+    "Busca ahora a un familiar o a alguien de confianza, cuéntale cómo te sientes y pídele que se quede contigo. "
+    "Te recomiendo acudir en persona a atención médica, psicológica o psiquiátrica."
 )
+_NO_SOMOS_INDICADOS = (
+    "Este servicio es coaching de vida, no atención psicológica, psiquiátrica ni de emergencias. Por lo que me "
+    "cuentas, en este momento no somos las personas indicadas para acompañarte y no podemos agendarte una sesión."
+)
+# Solo cuenta este texto exacto, en mayúsculas. VERSION_AVISO queda en el registro: cambiarla si cambia el aviso.
+PALABRA_ACEPTAR = "ACEPTO"
+VERSION_AVISO = "2026-11-05"
+_PIDE_ACEPTAR = (
+    "Si lo que vives no es una crisis, entiendes que esto es coaching de vida y aun así quieres continuar, "
+    f"escribe solamente {PALABRA_ACEPTAR} en mayúsculas."
+)
+RESPUESTA_ACEPTADO = "Gracias, quedó registrado. ¿Te gustaría agendar una sesión?"
+_PREGUNTA_PAIS = "¿En qué país estás? Así te paso la línea de ayuda que te corresponde."
+
+
+def _pais_del_telefono(telefono: str) -> str | None:
+    prefijo = max((p for p in _PAIS_POR_PREFIJO if telefono.startswith(p)), key=len, default=None)
+    return _PAIS_POR_PREFIJO.get(prefijo)
+
+
+def pais_en_texto(texto: str) -> str | None:
+    encontrado = _PAISES.search(normalizar(texto))
+    if not encontrado:
+        return None
+    return _NOMBRE_DE_PAIS.get(encontrado.group(1), encontrado.group(1).title())
+
+
+def _linea_de(telefono: str) -> str:
+    pais = _pais_del_telefono(telefono)
+    return f"Si estás en {pais}, llama a {LINEAS_DE_AYUDA[pais]}. " if pais else ""
+
+
+def _linea_segun(telefono: str, texto: str) -> str:
+    """Lo que dice la persona manda sobre su prefijo. Si ya dijo su país no se le vuelve a preguntar."""
+    pais = pais_en_texto(texto) if texto else None
+    if pais in LINEAS_DE_AYUDA:
+        return f"En {pais} puedes llamar a {LINEAS_DE_AYUDA[pais]}."
+    if pais:
+        return f"En {pais} llama a tu número local de emergencias."
+    return f"{_linea_de(telefono)}{_PREGUNTA_PAIS}"
+
+
+def _aviso(telefono: str, texto: str = "") -> str:
+    return f"{_NO_SOMOS_INDICADOS}\n\n{_RED_DE_APOYO} {_PELIGRO}\n\n{_linea_segun(telefono, texto)}\n\n{_PIDE_ACEPTAR}"
+
+
+def respuesta_crisis(telefono: str) -> str:
+    return f"{_INICIO_CRISIS} y lo más importante ahora es que estés a salvo. {_aviso(telefono)}"
+
+
+def respuesta_pausa(telefono: str, texto: str = "") -> str:
+    return f"{_INICIO_PAUSA} {_aviso(telefono, texto)}"
+
+
+RESPUESTA_CRISIS = respuesta_crisis("52")
+RESPUESTA_PAUSA = respuesta_pausa("52")
 
 # Prefijo con el que se guardan en el historial los mensajes que Eduardo escribe desde Telegram.
 MARCA_EDUARDO = "[Eduardo] "
@@ -68,7 +167,9 @@ def normalizar(texto: str) -> str:
 # --- Crisis ----------------------------------------------------------------
 # Señales explícitas: bastan por sí solas, sin consultar al modelo.
 _CRISIS_FUERTE = re.compile(
-    r"suicid|quitarme la vida|matarme|me quiero morir|quiero morir|no quiero (seguir )?vivi(r|endo)"
+    r"suicid|quitarme la vida|matarme"
+    r"|quiero morir(?! de (la |el )?(risa|verguenza|pena|hambre|sueno|ganas|amor|calor|frio))"
+    r"|no quiero (seguir )?vivi(r|endo)"
     r"|acabar con (mi vida|todo)|terminar con mi vida|hacerme dano|lastimarme|cortarme|me corto"
     r"|autolesi|mejor muert[oa]|estarian mejor sin mi|sin mi estarian mejor|desaparecer para siempre"
     r"|tomarme (todas )?las pastillas|me (pega|golpea)|me viol[oa]|abusa(ron)? de mi|abuso sexual"
@@ -99,21 +200,26 @@ def senal_debil(texto: str) -> bool:
     return bool(_CRISIS_DEBIL.search(normalizar(texto)))
 
 
-def mensajes_para_crisis(historial: list[dict], texto: str) -> list[str]:
-    """Últimos mensajes de la persona para el clasificador, sin los anteriores a la última respuesta fija de crisis.
+def _es_respuesta_de_crisis(mensaje: dict) -> bool:
+    return mensaje["role"] == "assistant" and mensaje["content"].startswith((_INICIO_CRISIS, _INICIO_PAUSA))
 
-    Esa crisis ya se atendió: si un mensaje llega hasta aquí es que Eduardo reanudó la conversación, y releerla
-    haría que un simple "hola" volviera a pausarla."""
-    corte = max(
-        (
-            i
-            for i, m in enumerate(historial)
-            if m["role"] == "assistant" and m["content"] in (RESPUESTA_CRISIS, RESPUESTA_PAUSA)
-        ),
-        default=-1,
-    )
+
+def hubo_crisis(historial: list[dict]) -> bool:
+    return any(_es_respuesta_de_crisis(m) for m in historial)
+
+
+def mensajes_para_crisis(historial: list[dict], texto: str) -> list[str]:
+    """Lo que lee el clasificador: los mensajes de la persona posteriores a la última respuesta fija de crisis y,
+    primero, el final del último mensaje de Sofía.
+
+    La crisis anterior ya se atendió: si un mensaje llega hasta aquí es que se reanudó la conversación, y releerla
+    haría que un simple "hola" volviera a pausarla. El mensaje de Sofía da el contexto de un "sí" o un "no" a una
+    pregunta como si sigue pensando en quitarse la vida."""
+    corte = max((i for i, m in enumerate(historial) if _es_respuesta_de_crisis(m)), default=-1)
     recientes = [m["content"] for m in historial[corte + 1 :] if m["role"] == "user"][-3:]
-    return recientes if texto in recientes else [*recientes[-2:], texto]
+    recientes = recientes if texto in recientes else [*recientes[-2:], texto]
+    de_sofia = [m["content"] for m in historial if m["role"] == "assistant"]
+    return [f"{llm.MARCA_SOFIA}{de_sofia[-1][-300:]}", *recientes] if de_sofia else recientes
 
 
 async def detectar_crisis(mensajes: list[str], actual: str | None = None) -> bool:

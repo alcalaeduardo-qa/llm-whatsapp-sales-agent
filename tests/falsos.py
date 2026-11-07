@@ -31,6 +31,8 @@ class StoreFalso:
         self.metricas: list[dict] = []
         self.aviso_ya_enviado = True  # los tests del aviso lo ponen en False
         self.avisados: list[str] = []
+        self.aceptaciones: list[tuple] = []
+        self.aceptacion_falla = False
 
     async def registrar_entrante(self, telefono, contenido, wa_message_id):
         if wa_message_id in self.ids:
@@ -60,6 +62,12 @@ class StoreFalso:
 
     async def guardar_metrica(self, fila):
         self.metricas.append(fila)
+
+    async def registrar_aceptacion(self, telefono, texto, wa_message_id, version_aviso):
+        if self.aceptacion_falla:
+            return False
+        self.aceptaciones.append((telefono, texto, wa_message_id, version_aviso))
+        return True
 
     async def pausar_venta(self, telefono, motivo):
         self.pausadas[telefono] = motivo
