@@ -133,6 +133,9 @@ RESPUESTA_AUDIO_FALLIDO = "Recibí tu nota de voz, pero no logré escucharla bie
 
 RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalmente a la brevedad."
 
+RESPUESTA_NO_COMPROBANTE = (
+    "Eduardo revisó tu archivo y no parece un comprobante de pago. Si ya pagaste, mándalo de nuevo por aquí, por favor."
+)
 RESPUESTA_COMPROBANTE = "Gracias, recibí tu archivo. Eduardo lo revisa y te confirma personalmente a la brevedad."
 
 # {cuando}: "lunes 2 de noviembre a las 2 PM"
@@ -150,6 +153,10 @@ RESPUESTA_RECORDATORIO = (
 # {url}: config.URL_PRIVACIDAD. Va al pie de la primera respuesta de Sofía y no entra al historial,
 # para que Claude no lo copie en sus mensajes.
 AVISO_PRIVACIDAD = (
+    "Sanando el Alma es un servicio profesional de coaching de vida. No sustituye la terapia psicológica ni la "
+    "atención de salud.\n"
+    "En sesiones privadas con Eduardo, por escrito y audios en vivo, trabajas para entender de dónde viene lo que "
+    "te pasa, ver con claridad el patrón que repites y reaccionar menos ante él.\n\n"
     "Aviso de privacidad: {url}\n"
     "Tu conversación se borra sola después de 90 días sin actividad. "
     "Si quieres que se borre antes, escribe a sanandoalmaa@gmail.com."

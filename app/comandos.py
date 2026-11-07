@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta
 import httpx
 
 from app import calendario, config, guardrails, store, telegram, whatsapp
-from app.scheduling import dia_y_fecha
+from app.scheduling import dia_y_fecha, horas_libres
 from app.text import normalizar_numero
 
 logger = logging.getLogger("sofia.comandos")
@@ -75,7 +75,19 @@ def interpretar_fecha_hora(dia: str, hora: str, ahora: datetime) -> datetime | N
     return datetime.combine(fecha, time(numero), tzinfo=config.ZONA_MX)
 
 
-async def responder(telefono: str, texto: str) -> None:
+def botones_comprobante(telefono: str) -> dict:
+    return {
+        "inline_keyboard": [
+            [{"text": "✅ Reservar", "callback_data": f"reservar:{telefono}"}],
+            [{"text": "🚫 No es comprobante", "callback_data": f"no_comprobante:{telefono}"}],
+            [{"text": "✍️ Mensaje personalizado", "callback_data": f"mensaje:{telefono}"}],
+            [{"text": "▶️ Reanudar a Sofía", "callback_data": f"reanudar:{telefono}"}],
+        ]
+    }
+
+
+async def responder(telefono: str, texto: str, devolver: bool = False) -> None:
+    """Lo que escribe Eduardo se guarda en el historial, así Sofía lo lee cuando retoma. `devolver` se la regresa."""
     await store.activar_humano(telefono, "eduardo_responde")
     try:
         await whatsapp.enviar_texto(normalizar_numero(telefono), texto)
@@ -87,34 +99,38 @@ async def responder(telefono: str, texto: str) -> None:
         return
     # Marcado para que Claude sepa que lo escribió Eduardo y no Sofía
     await store.guardar_respuesta(telefono, guardrails.MARCA_EDUARDO + texto)
+    if devolver and await store.reanudar(telefono):
+        await telegram.alertar(f"✅ Enviado a +{telefono}. Sofía vuelve a atender")
+        return
     await telegram.alertar(f"✅ Enviado a +{telefono}. Sofía sigue en silencio hasta /reanudar {telefono}")
 
 
-async def reservar(telefono: str, inicio: datetime) -> None:
-    """Solo por orden de Eduardo, después de que él validó el pago. Sofía nunca reserva por su cuenta."""
+async def reservar(telefono: str, inicio: datetime) -> bool:
+    """Solo por orden de Eduardo, después de que él validó el pago. Sofía nunca reserva por su cuenta.
+    Devuelve si quedó reservada."""
     if not calendario.configurado():
         await telegram.alertar(
             "❌ Falta configurar iCloud (ICLOUD_USUARIO e ICLOUD_PASSWORD_APP en .env). No reservé nada."
         )
-        return
+        return False
     if inicio <= datetime.now(config.ZONA_MX):
         await telegram.alertar("❌ Ese horario ya pasó. No reservé nada.")
-        return
+        return False
     if not config.HORA_INICIO <= inicio.hour < config.HORA_FIN:
         await telegram.alertar(
             f"❌ Las sesiones empiezan entre las {config.HORA_INICIO - 12} PM y las {config.HORA_FIN - 13} PM. "
             "No reservé nada."
         )
-        return
+        return False
     try:
         await calendario.reservar(inicio, telefono)
     except calendario.HorarioOcupado as e:
         await telegram.alertar(f"❌ Ese horario ya está ocupado en tu calendario ({e}). No reservé nada.")
-        return
+        return False
     except Exception:
         logger.exception("No se pudo crear el evento en iCloud")
         await telegram.alertar("❌ No pude escribir en tu calendario de iCloud. No reservé nada, revisa los logs.")
-        return
+        return False
 
     cuando = f"{dia_y_fecha(inicio.date())} a las {inicio.hour - 12} PM"
     texto = guardrails.RESPUESTA_RESERVA.format(cuando=cuando)
@@ -133,6 +149,7 @@ async def reservar(telefono: str, inicio: datetime) -> None:
     await telegram.alertar(
         f"📅 Reservado en tu calendario {config.ICLOUD_CALENDARIO}: +{telefono}, {cuando} hora México. {aviso}"
     )
+    return True
 
 
 async def _reservar_desde_comando(argumentos: list[str], telefono_citado: str | None) -> None:
@@ -157,7 +174,57 @@ async def _con_telefono(argumento: str | None, uso: str):
     return telefono
 
 
+async def _elegir_horario(telefono: str) -> None:
+    ahora = datetime.now(config.ZONA_MX)
+    try:
+        inicios = horas_libres(ahora, await calendario.ocupados(ahora, usar_cache=False))
+    except Exception:
+        logger.exception("No se pudo leer el calendario para los botones")
+        await telegram.alertar(f"❌ No pude leer tu calendario. Usa /reservar {telefono} <día/mes> <hora>")
+        return
+    if not inicios:
+        await telegram.alertar(f"No hay horas libres cercanas. Usa /reservar {telefono} <día/mes> <hora>")
+        return
+    botones = [
+        {"text": f"{i.day}/{i.month} {i.hour - 12} PM", "callback_data": f"hora:{telefono}:{i:%Y%m%d%H}"}
+        for i in inicios
+    ]
+    await telegram.alertar(
+        f"¿Qué horario acordó +{telefono}? Si no aparece, usa /reservar {telefono} <día/mes> <hora>",
+        {"inline_keyboard": [botones[i : i + 2] for i in range(0, len(botones), 2)]},
+    )
+
+
+async def _manejar_boton(boton: dict) -> None:
+    chat = (boton.get("message") or {}).get("chat", {}).get("id")
+    if str(chat) != str(config.TELEGRAM_CHAT_ID):
+        logger.warning("Botón de Telegram de un chat no autorizado, se ignora")
+        return
+    await telegram.contestar_boton(boton.get("id", ""))
+    accion, telefono, *resto = (boton.get("data") or "").split(":") + [""]
+    if accion == "mensaje":
+        marcado = {"force_reply": True}
+        await telegram.alertar(f"✍️ Escribe tu mensaje para +{telefono} contestando a este aviso.", marcado)
+        return
+    if (await store.obtener_estado(telefono))["venta_pausada"]:
+        # Quitar este bloqueo le toca a la persona con ACEPTO: un botón no debe saltárselo.
+        await telegram.alertar(f"⚠️ +{telefono} está en bloqueo por crisis. No hice nada.")
+    elif accion == "reservar":
+        await _elegir_horario(telefono)
+    elif accion == "hora":
+        inicio = datetime.strptime(resto[0], "%Y%m%d%H").replace(tzinfo=config.ZONA_MX)
+        if await reservar(telefono, inicio):
+            await store.reanudar(telefono)
+    elif accion == "no_comprobante":
+        await responder(telefono, guardrails.RESPUESTA_NO_COMPROBANTE, devolver=True)
+    elif accion == "reanudar" and await store.reanudar(telefono):
+        await telegram.alertar(f"▶️ Sofía vuelve a atender a +{telefono}")
+
+
 async def manejar(update: dict) -> None:
+    if update.get("callback_query"):
+        await _manejar_boton(update["callback_query"])
+        return
     mensaje = update.get("message") or {}
     if str(mensaje.get("chat", {}).get("id")) != str(config.TELEGRAM_CHAT_ID):
         logger.warning("Update de Telegram de un chat no autorizado, se ignora")
