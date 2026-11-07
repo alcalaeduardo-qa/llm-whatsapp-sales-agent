@@ -2,7 +2,7 @@
 
 > **Para Claude en un chat nuevo:** lee este archivo completo y después `plan-desarrollo-sofia.md` (el plan original de 10 días). Aquí está lo que ya se hizo, las decisiones de Eduardo que cambiaron el plan, cómo se opera el proyecto y qué sigue. Antes de tocar código corre `git status`, `git branch --show-current` y `ls prompts/` (debe existir `sofia.md`; ver "Estado del repositorio").
 
-Última actualización: 5 de noviembre de 2026.
+Última actualización: 6 de noviembre de 2026.
 
 ---
 
@@ -29,13 +29,13 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **496 pasan, cobertura 99 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
+Tests: **522 pasan, cobertura 98 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
 ---
 
 ## 3. Estado del repositorio (al cerrar este chat)
 
-- Rama actual: **`main`**, con todo lo anterior integrado (último merge: PR #21). No hay PR abiertos.
+- Rama actual: **`main`**, con todo lo anterior integrado (último merge: PR #24).
 - Ramas ya integradas que siguen sin borrar (Eduardo debe autorizarlo): `dia-9-railway`, `dia-9-cierre`, `dia-9-metricas-aviso`, `dia-9-reconexion-icloud`, `quitar-borrar-mis-datos`, `auditoria-crisis-tests`, `auditoria-pagos` y `auditoria-logs-operador`, locales y en GitHub.
 - `prompts/sofia.md` (prompt real de venta) **no se versiona** (`.gitignore`); en el repo va `prompts/sofia.example.md`. La app usa el real si existe y si no la plantilla (con aviso en el log). Sigue visible en commits viejos (Eduardo decidió no reescribir el historial).
   - ⚠️ Al cambiar a una rama/commit antiguo donde `sofia.md` estaba versionado, git lo borra al volver. Pasó una vez y se recuperó con `git show 49578b0:prompts/sofia.md > prompts/sofia.md`. **Conviene que Eduardo guarde una copia fuera del repo.**
@@ -49,8 +49,8 @@ WhatsApp ──► POST /webhook (firma HMAC de Meta) ──► 200 inmediato + 
                  │
                  ├─ texto ─► procesar_mensaje
                  │            1. registrar en Supabase (idempotente por wa_message_id)
-                 │            2. si modo humano → reenviar a Telegram (crisis explícita sí recibe la Línea de la Vida)
-                 │            3. si venta en pausa por crisis → mensaje de contención
+                 │            2. si modo humano → reenviar a Telegram (crisis explícita sí recibe la línea de ayuda)
+                 │            3. si hay bloqueo por crisis → ACEPTO exacto lo registra y lo quita; cualquier otro texto repite recomendaciones y aviso
                  │            4. detectar crisis (palabras explícitas → si no, clasificador Haiku) → respuesta fija + pausa + alerta
                  │            5. generar con Claude (tool derivar_a_eduardo) → validar → 1 reintento → respaldo
                  │            6. enviar por WhatsApp; si derivó → modo humano + alerta 🙋
@@ -82,6 +82,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
 
 ### Base de datos (Supabase)
 - `mensajes`: `telefono, rol (user|assistant), contenido, wa_message_id (único), creado_en`. Los mensajes que Eduardo manda desde Telegram se guardan con prefijo `[Eduardo] `.
+- `aceptaciones_aviso`: teléfono, fecha y hora, texto, `wa_message_id` y versión del aviso. Fuera de la retención de 90 días, a propósito.
 - `conversaciones`: `telefono (PK), venta_pausada, motivo_pausa, pausada_en, humano_activo, motivo_humano, humano_desde, actualizado_en`.
 - Migraciones aplicadas en producción: `dia3_conversaciones`, `dia4_modo_humano`, `dia5_recordatorios` (tabla `recordatorios`: evento_uid PK, telefono, inicio, enviado_en), `dia9_retencion_90_dias` (función `purgar_inactivos(dias)` + tarea de `pg_cron` `sofia-retencion-90-dias`, diaria a las 9:00 UTC), `dia9_metricas_aviso` (tabla `metricas` y columna `conversaciones.aviso_privacidad_en`).
 - Las migraciones van **antes** del código que las usa: sin `aviso_privacidad_en` falla la lectura del estado y Sofía respondería en modo humano.
@@ -105,7 +106,7 @@ Telegram (Eduardo) ──► POST /telegram/webhook (secret token) ──► com
   - A la persona: WhatsApp **10 minutos antes** de la sesión.
   - A Eduardo: alertas del calendario **10 minutos antes y a la hora** de la sesión (VALARM en el evento que crea `/reservar`).
 - Eduardo responde a las personas **desde Telegram** (sale por el número de Sofía).
-- Alertas de crisis por Telegram.
+- Crisis (5 de noviembre): Sanando el Alma es coaching de vida, no atención psicológica. Sofía no promete a Eduardo ni ayuda; da recomendaciones fijas y la línea del país, y niega el servicio con suavidad ("no somos las personas indicadas"). El bloqueo lo quita la persona escribiendo solo `ACEPTO` en mayúsculas, y queda registrado. Telegram solo confirma que se envió el mensaje de una crisis nueva.
 - Prompt real fuera del repo (público).
 - **BORRAR MIS DATOS se quitó** (5 de noviembre): el borrado es la retención de 90 días y, a petición, por correo.
 - Railway sigue en **Trial** por decisión de Eduardo, con **Auto deploy encendido**.
@@ -224,6 +225,13 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 - **Logs y respuestas del operador (rama `auditoria-logs-operador`):** con `LOG_CONTENIDO=false` los logs ya no llevan el texto de las alertas de Telegram cuando falla el envío (`text.describir`), ni los identificadores de mensaje (los `wamid` de Meta llevan el teléfono codificado: se registran como huella con `text.referencia`), ni el teléfono de un envío fallido; el error de Meta deja código y tipo, no el cuerpo. La respuesta de Eduardo va al número del encabezado de la alerta aunque sea corto (`_TELEFONO_EN_ALERTA` acepta desde 7 dígitos) y el texto de ayuda ya no trae un teléfono de ejemplo con `+`. Tests en `tests/test_auditoria_logs.py`. Los logs ya escritos en Railway no se corrigen: caducan según su retención. El log de errores de Groq sigue mostrando el cuerpo (solo viaja audio).
 - Pendiente: el resto de las pistas de la auditoría (solo en el reporte privado) y probar el prompt real con ataques de inyección (DeepTeam o promptfoo).
 
+### Crisis como coaching (PRs #23 y #24, 5 y 6 de noviembre)
+- #23: tras `/reanudar`, el clasificador ya no relee la crisis atendida (`mensajes_para_crisis` corta antes de la última respuesta fija y conserva la última pregunta de Sofía para entender un "Si").
+- #24: aviso hasta `ACEPTO`, líneas por país (`LINEAS_DE_AYUDA`, por texto o prefijo), tabla `aceptaciones_aviso`, `NOTA_TRAS_CRISIS` y calibración de expresiones coloquiales. Si cambia el aviso, cambiar `VERSION_AVISO`.
+- Evals en `main`: 95.3 % (61/64) en el CI, clasificador 27/27 y 72/72. **Sin probar en vivo.**
+- Líneas revisadas el 6 de noviembre: Perú ya no cita número de opción porque las fuentes no coinciden (5 o 3 y luego 5); dice "113 del Minsa" y pedir salud mental. Colombia: 106 confirmada en Bogotá, 123 para emergencias.
+- El crédito de Anthropic es limitado (unos 4 USD el 6 de noviembre): si se agota, Sofía deja de responder y la crisis depende solo de la lista de palabras. Cada corrida de evals en el CI cuesta unos 0.13 USD.
+
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).
 - Pasar del número de prueba de Meta a un número real (nombre visible aprobado, método de pago; la verificación del negocio no es obligatoria para empezar).
@@ -232,9 +240,9 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 
 ## 10. Para el próximo chat: qué sigue, en orden
 
-1. **Pruebas en vivo por WhatsApp (Eduardo)**, que ningún test cubre: una crisis explícita, una imagen con pie de crisis, una nota de voz durante una pausa, y una conversación hasta el pago comprobando que el enlace de Stripe de Railway coincida **exacto** con el que escribe Sofía (si no, la persona recibe el mensaje de respaldo en lugar del cobro).
+1. **Pruebas en vivo por WhatsApp (Eduardo)**, que ningún test cubre: el flujo de crisis (`hola`, `acepto`, `soy de Perú`, `ACEPTO`, `Me siento a morir, tuve un día horrible en el trabajo`, `Quiero morir`), una imagen con pie de crisis, una imagen con pie de crisis, una nota de voz durante una pausa, y una conversación hasta el pago comprobando que el enlace de Stripe de Railway coincida **exacto** con el que escribe Sofía (si no, la persona recibe el mensaje de respaldo en lugar del cobro). El enlace va solo fuera de México y requiere otro número autorizado o borrar el historial de prueba, con autorización de Eduardo.
 2. **Revisar en los logs de Railway** que ya no aparezca `Falló la revisión de recordatorios` (los cortes de iCloud) y que los logs no lleven teléfonos ni identificadores.
 3. **Auditoría:** corregir el resto de las pistas del reporte privado (`C:/Users/Admin/security-audit-skill/sofia/run-1/NEEDS-VALIDATION.md`; no subirlo al repo), una a una con el método de la sección 7. Después, probar el prompt real con ataques de inyección (DeepTeam o promptfoo) y correr escáneres (gitleaks, pip-audit, trivy). El prompt real no se auditó.
-4. **Antes de atender a personas reales:** número real de WhatsApp (el de prueba solo escribe a la lista de Meta), plantilla de recordatorio para fuera de la ventana de 24 h, plan de Railway (el Trial vence a los 30 días o con 5 USD, desde el 4 de noviembre), revisión legal de `PRIVACY.md`, y decidir si se cambia la clave de Anthropic (estuvo un rato sin cifrar en Variables de GitHub).
+4. **Antes de atender a personas reales:** número real de WhatsApp (el de prueba solo escribe a la lista de Meta), plantilla de recordatorio para fuera de la ventana de 24 h, plan de Railway (el Trial vence a los 30 días o con 5 USD, desde el 4 de noviembre), más crédito de Anthropic con alerta de gasto, revisión legal de `PRIVACY.md` (incluido cuánto se conserva el registro de `ACEPTO`) y del aviso, y decidir si se cambia la clave de Anthropic (estuvo un rato sin cifrar en Variables de GitHub).
 5. **Día 10** (portafolio): ver arriba.
 6. Pequeños: borrar las ramas ya integradas (con autorización), revisar la regla de la palabra "psicólogos" que a veces manda a Eduardo una conversación que no lo necesitaba, y probar en vivo el recordatorio de 10 minutos antes.

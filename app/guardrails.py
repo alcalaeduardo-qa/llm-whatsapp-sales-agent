@@ -22,7 +22,7 @@ LINEAS_DE_AYUDA = {
     "Argentina": "el Centro de Asistencia al Suicida al 135 o al 011 5275 1135",
     "Uruguay": "la Línea Vida al 0800 0767, o al *0767 desde celular",
     "Ecuador": "la línea 171 opción 6, de 7 AM a 8 PM",
-    "Perú": "la línea 113 opción 5",
+    "Perú": "la línea 113 del Minsa y pide orientación en salud mental, gratuita y disponible las 24 horas",
     "Colombia": "la línea 106 si estás en Bogotá. En una emergencia llama al 123",
 }
 # Prefijo telefónico → país; gana el más largo. None: comparte el +1 pero no se usa la línea de Estados Unidos.

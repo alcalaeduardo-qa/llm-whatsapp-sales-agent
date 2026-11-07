@@ -1,6 +1,6 @@
 # Política de privacidad
 
-Última actualización: 5 de noviembre de 2026
+Última actualización: 6 de noviembre de 2026
 
 Esta política aplica al asistente de WhatsApp de **Sanando el Alma**. El asistente, Sofía, usa inteligencia artificial.
 
@@ -20,6 +20,7 @@ Lo que nos cuentas puede incluir información sobre tu vida emocional. Escribe s
 - Darte información sobre nuestros servicios.
 - Agendar tu sesión y recordártela.
 - Avisar a Eduardo cuando necesites atención personal o cuando detectemos que puedes estar en riesgo.
+- Dejar constancia de que aceptaste el aviso de coaching, si escribes ACEPTO después de un mensaje de crisis.
 - Mejorar la calidad de las respuestas del asistente.
 
 ## Con quién se comparten
@@ -38,11 +39,13 @@ No vendemos ni rentamos tus datos a terceros.
 
 Borramos tu historial de conversación después de 90 días sin actividad.
 
+Si escribes ACEPTO, guardamos aparte tu número, la fecha y hora, el texto que enviaste, el identificador del mensaje y la versión del aviso. Este registro **no se borra a los 90 días**: se conserva como respaldo de tu aceptación aunque tu conversación ya se haya borrado.
+
 También guardamos métricas de operación, como el tiempo de respuesta y el costo de cada mensaje. No incluyen tu número ni el contenido de tus mensajes.
 
 ## Tus derechos
 
-Tu conversación se borra sola después de 90 días sin actividad.
+Tu conversación se borra sola después de 90 días sin actividad. El registro de aceptación del aviso no se borra solo.
 
 Para que se borre antes, o para pedir acceso, corrección o eliminación de tus datos, escribe a **sanandoalmaa@gmail.com**. Respondemos en un plazo máximo de 20 días hábiles. Si tienes una sesión agendada, el evento sigue en el calendario de Eduardo hasta que pidas eliminarlo.
 
