@@ -46,10 +46,3 @@ jobs:
           SOLO: ${{ inputs.solo }}
           MINIMO: ${{ inputs.minimo }}
         run: python -m evals.run ${SOLO:+--solo "$SOLO"} --minimo "$MINIMO"
-      - name: Reporte
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: evals-con-juez
-          path: evals/RESULTS.md
-          if-no-files-found: ignore

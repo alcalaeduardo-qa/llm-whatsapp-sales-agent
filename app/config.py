@@ -30,6 +30,9 @@ HISTORIAL_MAX = int(os.getenv("HISTORIAL_MAX", "20"))
 HORA_INICIO = int(os.getenv("HORA_INICIO", "14"))
 HORA_FIN = int(os.getenv("HORA_FIN", "20"))
 MARGEN_HORAS = int(os.getenv("MARGEN_HORAS", "2"))
+# Topes de mensajes entrantes (app/limites.py): por persona en una hora y de todas en un día
+LIMITE_MENSAJES_HORA = int(os.getenv("LIMITE_MENSAJES_HORA", "30"))
+LIMITE_MENSAJES_DIA = int(os.getenv("LIMITE_MENSAJES_DIA", "600"))
 SESION_MINUTOS = int(os.getenv("SESION_MINUTOS", "60"))
 
 # Calendario de Eduardo en iCloud (CalDAV). La contraseña es una "contraseña de app" de appleid.apple.com,

@@ -98,11 +98,3 @@ jobs:
       - name: Sin clave de Anthropic
         if: env.ANTHROPIC_API_KEY == ''
         run: echo "::warning::Falta el secreto ANTHROPIC_API_KEY; se omiten los evals"
-      - name: Reporte
-        if: always() && env.ANTHROPIC_API_KEY != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: evals-deterministas
-          # Solo el resumen: las transcripciones completas reflejan el prompt y no se publican
-          path: evals/RESULTS.md
-          if-no-files-found: ignore

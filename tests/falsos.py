@@ -10,7 +10,7 @@ import respx
 from anthropic import AsyncAnthropic
 from fastapi.testclient import TestClient
 
-from app import llm, main, store
+from app import limites, llm, main, store
 
 URL_META = "https://graph.facebook.com/v26.0/111/messages"
 URL_TELEGRAM = "https://api.telegram.org/botbot-token/sendMessage"
@@ -143,6 +143,7 @@ def _texto(t):
 
 @pytest.fixture
 def entorno(monkeypatch):
+    limites.reiniciar()
     falso = StoreFalso()
     for nombre in [n for n in dir(StoreFalso) if not n.startswith("_") and n != "respuestas_a"]:
         monkeypatch.setattr(store, nombre, getattr(falso, nombre))

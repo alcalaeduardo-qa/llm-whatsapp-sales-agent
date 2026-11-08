@@ -136,6 +136,7 @@ RESPUESTA_DERIVACION = "Gracias por contarme. Eduardo te escribirá personalment
 RESPUESTA_NO_COMPROBANTE = (
     "Eduardo revisó tu archivo y no parece un comprobante de pago. Si ya pagaste, mándalo de nuevo por aquí, por favor."
 )
+RESPUESTA_LIMITE = "Recibí muchos mensajes seguidos. Voy a hacer una pausa breve y Eduardo revisará tu conversación."
 RESPUESTA_COMPROBANTE = "Gracias, recibí tu archivo. Eduardo lo revisa y te confirma personalmente a la brevedad."
 
 # {cuando}: "lunes 2 de noviembre a las 2 PM"
