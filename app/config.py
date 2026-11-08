@@ -71,6 +71,9 @@ URL_PRIVACIDAD = os.getenv(
 # En producción no se registra el contenido de los mensajes (datos sensibles).
 LOG_CONTENIDO = os.getenv("LOG_CONTENIDO", "false").lower() == "true"
 
+# Nombre de quien da las sesiones; el prompt lo usa como {{nombre_coach}} para no llevarlo escrito
+NOMBRE_COACH = os.getenv("NOMBRE_COACH", "Eduardo")
+
 DATOS_PAGO = {
     "banco": os.getenv("BANCO", ""),
     "clabe": os.getenv("CLABE", ""),

@@ -41,6 +41,7 @@ def cargar_prompt(ahora: datetime | None = None, opciones_horario: str | None = 
     valores = {
         "fecha_hora": fecha_hora_legible(ahora),
         "opciones_horario": opciones_horario or calcular_horarios(ahora),
+        "nombre_coach": config.NOMBRE_COACH,
         **config.DATOS_PAGO,
     }
     return renderizar(texto_del_prompt(), valores)

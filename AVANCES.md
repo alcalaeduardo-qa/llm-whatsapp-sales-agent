@@ -252,6 +252,10 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 - 5 casos nuevos de red-team (69 en total). Red-team 21/21; corrida completa sin juez 95.7 % (66/69). El check de descuento ya no confunde un rechazo ("no puedo darla sin costo") con un descuento.
 - No se usaron DeepTeam ni promptfoo: cuestan más crédito. Quedan para cuando haya saldo.
 
+### Prompt sin nombre y huellas (8 de noviembre)
+- El prompt usa `{{nombre_coach}}` (variable `NOMBRE_COACH`, por defecto Eduardo) en lugar del nombre escrito. Al render queda igual salvo el encabezado de derivación, que pasa de mayúsculas a "Eduardo".
+- `prompt.huella()`: 12 caracteres para comparar el archivo local, el secreto de GitHub (sale en el CI) y la variable de Railway (sale en el log al arrancar). El 8 de noviembre el secreto de GitHub era otra versión.
+
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).
 - Pasar del número de prueba de Meta a un número real (nombre visible aprobado, método de pago; la verificación del negocio no es obligatoria para empezar).
