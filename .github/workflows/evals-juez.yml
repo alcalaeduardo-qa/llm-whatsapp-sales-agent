@@ -20,6 +20,7 @@ permissions:
 jobs:
   evals:
     name: Evals con juez
+    if: github.actor == github.repository_owner  # solo el dueño expone la clave y el prompt real
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

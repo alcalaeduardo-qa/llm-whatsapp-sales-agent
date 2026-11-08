@@ -66,6 +66,8 @@ jobs:
   evals:
     name: Evals deterministas
     needs: tests
+    # La clave y el prompt real solo llegan a código del dueño del repo: los PR de otras personas no corren evals.
+    if: github.event_name == 'push' || github.event.pull_request.user.login == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
