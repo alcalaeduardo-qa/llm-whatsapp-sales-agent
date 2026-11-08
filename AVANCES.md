@@ -29,7 +29,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **522 pasan, cobertura 98 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
+Tests: **536 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
 ---
 
@@ -231,6 +231,11 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 - Evals en `main`: 95.3 % (61/64) en el CI, clasificador 27/27 y 72/72. **Sin probar en vivo.**
 - Líneas revisadas el 6 de noviembre: Perú ya no cita número de opción porque las fuentes no coinciden (5 o 3 y luego 5); dice "113 del Minsa" y pedir salud mental. Colombia: 106 confirmada en Bogotá, 123 para emergencias.
 - El crédito de Anthropic es limitado (unos 4 USD el 6 de noviembre): si se agota, Sofía deja de responder y la crisis depende solo de la lista de palabras. Cada corrida de evals en el CI cuesta unos 0.13 USD.
+
+### Botones de Telegram (7 de noviembre)
+- Cada comprobante trae Reservar, No es comprobante, Mensaje personalizado y Reanudar a Sofía. Reservar muestra horas libres leídas sin caché. Ningún botón quita un bloqueo por crisis.
+- Al arrancar, `telegram.preparar_bot` publica el menú de comandos y pide `callback_query` al webhook.
+- `NOTA_SIN_RESERVA`: sin evento en el calendario, Sofía no puede dar una sesión por confirmada. El primer mensaje lleva el aviso de coaching y beneficios.
 
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).

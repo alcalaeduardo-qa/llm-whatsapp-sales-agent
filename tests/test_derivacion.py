@@ -352,7 +352,7 @@ async def test_registrar_webhook(entorno):
     )
     assert await telegram.registrar_webhook("https://x.ngrok.app/telegram/webhook") == {"ok": True, "result": True}
     enviado = json.loads(ruta.calls[0].request.content)
-    assert enviado["secret_token"] == SECRETO_TG and enviado["allowed_updates"] == ["message"]
+    assert enviado["secret_token"] == SECRETO_TG and enviado["allowed_updates"] == ["message", "callback_query"]
 
 
 # --- Conversación devuelta por Eduardo -------------------------------------------

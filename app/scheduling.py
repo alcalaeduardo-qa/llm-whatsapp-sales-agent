@@ -68,6 +68,20 @@ def horarios_libres(
     return inicios
 
 
+def horas_libres(
+    ahora: datetime, ocupados: Sequence[tuple[datetime, datetime]] = (), dias: int = 3, cantidad: int = 12
+) -> list[datetime]:
+    """Todas las horas libres de los próximos días, para que Eduardo elija la que acordó la persona."""
+    duracion = timedelta(minutes=config.SESION_MINUTOS)
+    inicios = [
+        datetime.combine((ahora + timedelta(days=extra)).date(), time(hora), tzinfo=ahora.tzinfo)
+        for extra in range(dias)
+        for hora in range(config.HORA_INICIO, config.HORA_FIN)
+    ]
+    libres = [i for i in inicios if i > ahora and all(not (i < fin and ini < i + duracion) for ini, fin in ocupados)]
+    return libres[:cantidad]
+
+
 def _hora_12(momento: datetime) -> str:
     return f"{momento.strftime('%I').lstrip('0')} {momento.strftime('%p')}"
 
