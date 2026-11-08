@@ -29,7 +29,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **544 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
+Tests: **553 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
 ---
 
@@ -240,6 +240,11 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 ### Topes y reporte de evals (auditoría 17, 18 y 22, 8 de noviembre)
 - `app/limites.py`: 30 mensajes por persona por hora y 600 en total por día (`LIMITE_MENSAJES_HORA`, `LIMITE_MENSAJES_DIA`). Pasado el tope no se llama a Claude ni se reenvía a Telegram; una crisis explícita sí recibe la línea, y la persona y Eduardo reciben un solo aviso. Vive en memoria y se reinicia con cada despliegue.
 - El CI ya no sube `evals/RESULTS.md` como artefacto: en un repo público cualquiera lo podía descargar.
+
+### CI y recursos (auditoría 19, 20 y 21, 8 de noviembre)
+- Evals del CI solo con código del dueño (`push` o PR de `repository_owner`); los de juez solo los lanza el dueño. Lo más fuerte sigue siendo de GitHub: un environment con aprobación y una clave de Anthropic solo para CI con límite de gasto.
+- Archivos de WhatsApp: tope de 16 MB y 3 descargas a la vez (`whatsapp.MAX_MEDIA_BYTES`).
+- iCloud: `sesiones_de` usa caché de 2 minutos y todo iCloud corre en 2 hilos propios, separados de Supabase.
 
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).

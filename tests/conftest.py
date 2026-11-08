@@ -19,6 +19,7 @@ def anyio_backend():
 def config_de_prueba(monkeypatch, tmp_path):
     """Valores fijos para que los tests no dependan del .env local."""
     monkeypatch.setattr(config, "APP_SECRET", SECRETO)
+    calendario.invalidar_cache()  # la caché de iCloud no debe pasar de un test a otro
     monkeypatch.setattr(config, "VERIFY_TOKEN", "tok")
     monkeypatch.setattr(config, "WHATSAPP_TOKEN", "token-meta")
     monkeypatch.setattr(config, "PHONE_NUMBER_ID", "111")

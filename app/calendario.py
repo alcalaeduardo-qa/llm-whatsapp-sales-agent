@@ -9,6 +9,7 @@ import logging
 import re
 import time as reloj
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time, timedelta
 from functools import lru_cache
 
@@ -28,6 +29,13 @@ _TITULO_SESION = re.compile(r"^Sesión \+(\d{10,15})$")
 
 Intervalo = tuple[datetime, datetime]
 _cache: dict = {"vence": 0.0, "dia": None, "ocupados": []}
+_cache_sesiones: dict = {"vence": 0.0, "dia": None, "sesiones": []}
+# iCloud tiene sus propios hilos: si se pone lento, no ocupa los que usan Supabase y el resto de la app.
+_HILOS_ICLOUD = ThreadPoolExecutor(max_workers=2, thread_name_prefix="icloud")
+
+
+async def _en_hilo(funcion, *args):
+    return await asyncio.get_running_loop().run_in_executor(_HILOS_ICLOUD, funcion, *args)
 
 
 class HorarioOcupado(Exception):
@@ -98,7 +106,7 @@ async def ocupados(desde: datetime, usar_cache: bool = True) -> list[Intervalo]:
     hasta = desde + timedelta(days=DIAS_A_CONSULTAR)
     if usar_cache and _cache["dia"] == desde.date() and reloj.monotonic() < _cache["vence"]:
         return _cache["ocupados"]
-    resultado = await asyncio.to_thread(_leer_ocupados, desde, hasta)
+    resultado = await _en_hilo(_leer_ocupados, desde, hasta)
     _cache.update(vence=reloj.monotonic() + CACHE_SEGUNDOS, dia=desde.date(), ocupados=resultado)
     return resultado
 
@@ -116,7 +124,7 @@ def _leer_sesiones(desde: datetime, hasta: datetime) -> list[tuple[str, datetime
 
 async def sesiones_entre(desde: datetime, hasta: datetime) -> list[tuple[str, datetime, str]]:
     """(uid, inicio, teléfono) de las sesiones creadas por /reservar (título "Sesión +teléfono")."""
-    return await asyncio.to_thread(_leer_sesiones, desde, hasta)
+    return await _en_hilo(_leer_sesiones, desde, hasta)
 
 
 async def sesiones_de(telefono: str, ahora: datetime) -> list[datetime]:
@@ -124,7 +132,12 @@ async def sesiones_de(telefono: str, ahora: datetime) -> list[datetime]:
     if not configurado():
         return []
     try:
-        sesiones = await sesiones_entre(ahora, ahora + timedelta(days=DIAS_SESIONES_RESERVADAS))
+        # Se consulta en cada mensaje: con caché, iCloud se lee una vez cada CACHE_SEGUNDOS y no por mensaje.
+        if _cache_sesiones["dia"] != ahora.date() or reloj.monotonic() >= _cache_sesiones["vence"]:
+            desde = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+            leidas = await sesiones_entre(desde, desde + timedelta(days=DIAS_SESIONES_RESERVADAS))
+            _cache_sesiones.update(vence=reloj.monotonic() + CACHE_SEGUNDOS, dia=ahora.date(), sesiones=leidas)
+        sesiones = _cache_sesiones["sesiones"]
     except Exception:
         logger.exception("No se pudieron consultar las sesiones reservadas")
         return []
@@ -133,6 +146,7 @@ async def sesiones_de(telefono: str, ahora: datetime) -> list[datetime]:
 
 def invalidar_cache() -> None:
     _cache.update(vence=0.0, dia=None, ocupados=[])
+    _cache_sesiones.update(vence=0.0, dia=None, sesiones=[])
 
 
 async def inicios_libres(ahora: datetime) -> list[datetime]:
@@ -181,6 +195,6 @@ async def reservar(inicio: datetime, telefono: str) -> datetime:
     for ocupado_inicio, ocupado_fin in await ocupados(inicio.replace(hour=0, minute=0), usar_cache=False):
         if inicio < ocupado_fin and ocupado_inicio < fin:
             raise HorarioOcupado(f"{ocupado_inicio:%H:%M}-{ocupado_fin:%H:%M}")
-    await asyncio.to_thread(_crear_evento, inicio, fin, telefono)
+    await _en_hilo(_crear_evento, inicio, fin, telefono)
     invalidar_cache()
     return fin

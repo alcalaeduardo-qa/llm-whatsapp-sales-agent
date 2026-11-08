@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -99,16 +100,33 @@ def dentro_de_ventana(ultimo_mensaje: datetime | None, ahora: datetime) -> bool:
     return ultimo_mensaje is not None and ahora - ultimo_mensaje < VENTANA
 
 
+MAX_MEDIA_BYTES = 16 * 1024 * 1024  # un comprobante o una nota de voz pesan mucho menos
+_DESCARGAS = asyncio.Semaphore(3)  # pocas a la vez: cada archivo vive completo en memoria hasta reenviarse
+
+
+class ArchivoMuyGrande(Exception):
+    pass
+
+
 async def descargar_media(media_id: str) -> tuple[bytes, str]:
-    """Graph API en dos pasos: el id da una URL temporal y esa URL (con el token) da el archivo."""
+    """Graph API en dos pasos: el id da una URL temporal y esa URL (con el token) da el archivo.
+    Se corta al pasar MAX_MEDIA_BYTES para que un archivo enorme no agote la memoria del servidor."""
     headers = {"Authorization": f"Bearer {config.WHATSAPP_TOKEN}"}
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with _DESCARGAS, httpx.AsyncClient(timeout=30) as client:
         meta = await client.get(f"https://graph.facebook.com/{config.GRAPH_API_VERSION}/{media_id}", headers=headers)
         meta.raise_for_status()
         info = meta.json()
-        archivo = await client.get(info["url"], headers=headers)
-        archivo.raise_for_status()
-    return archivo.content, info.get("mime_type", "application/octet-stream")
+        if int(info.get("file_size") or 0) > MAX_MEDIA_BYTES:
+            raise ArchivoMuyGrande(info.get("file_size"))
+        partes, total = [], 0
+        async with client.stream("GET", info["url"], headers=headers) as archivo:
+            archivo.raise_for_status()
+            async for parte in archivo.aiter_bytes():
+                total += len(parte)
+                if total > MAX_MEDIA_BYTES:
+                    raise ArchivoMuyGrande(total)
+                partes.append(parte)
+    return b"".join(partes), info.get("mime_type", "application/octet-stream")
 
 
 async def enviar_texto(destino: str, texto: str) -> None:
