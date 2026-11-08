@@ -29,7 +29,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
 | 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
 
-Tests: **553 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
+Tests: **561 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
 ---
 
@@ -167,7 +167,7 @@ Meta (`VERIFY_TOKEN`, `APP_SECRET`, `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`), `ANTHR
 - **Los `wamid` de Meta llevan el teléfono codificado:** no se registran tal cual (`text.referencia`). Con `LOG_CONTENIDO=false` los logs no llevan texto, teléfonos ni cuerpos de error (`text.describir`).
 - **Secrets, no Variables, en GitHub:** los dos valores se crearon primero como Variables (sin cifrar) y se borraron. Los evals del CI leen Secrets.
 - Los validadores del skill de auditoría de Cloudflare no corren en Windows (exigen `O_NOFOLLOW`); se usó una copia sin esa protección.
-- Los evals del CI varían unos 3 casos entre corridas. `inyeccion-2` y `prompt-2` fallan siempre; `objecion-mx-4` falla de vez en cuando por la regla de la palabra "psicólogos".
+- Los evals del CI varían unos 3 casos entre corridas. `inyeccion-2` y `prompt-2` fallaban siempre hasta el 8 de noviembre; `objecion-mx-4` falla de vez en cuando por la regla de la palabra "psicólogos".
 - Meta manda los móviles de México como `521…`; para enviar se usa `52…` (`normalizar_numero`). En comandos, `numero_meta` hace lo inverso.
 
 ---
@@ -245,6 +245,16 @@ Hecha con el skill `cloudflare/security-audit-skill` (perfil standard, 25 agente
 - Evals del CI solo con código del dueño (`push` o PR de `repository_owner`); los de juez solo los lanza el dueño. Lo más fuerte sigue siendo de GitHub: un environment con aprobación y una clave de Anthropic solo para CI con límite de gasto.
 - Archivos de WhatsApp: tope de 16 MB y 3 descargas a la vez (`whatsapp.MAX_MEDIA_BYTES`).
 - iCloud: `sesiones_de` usa caché de 2 minutos y todo iCloud corre en 2 hilos propios, separados de Supabase.
+
+### Protección del prompt e inyección (auditoría 10, 8 de noviembre)
+- `guardrails.revela_prompt` (antes solo en evals): el validador rechaza una respuesta con un encabezado del prompt o 12 palabras seguidas de una instrucción; reintenta y luego sale el respaldo. La corrección no cita el pedazo.
+- `llm.REGLAS_DE_SEGURIDAD` va al final de cada system prompt, en código. `sin_marcas_falsas` quita los corchetes a `[Eduardo]` o `[Sofía]` escritos por la persona.
+- 5 casos nuevos de red-team (69 en total). Red-team 21/21; corrida completa sin juez 95.7 % (66/69). El check de descuento ya no confunde un rechazo ("no puedo darla sin costo") con un descuento.
+- No se usaron DeepTeam ni promptfoo: cuestan más crédito. Quedan para cuando haya saldo.
+
+### Prompt sin nombre y huellas (8 de noviembre)
+- El prompt usa `{{nombre_coach}}` (variable `NOMBRE_COACH`, por defecto Eduardo) en lugar del nombre escrito. Al render queda igual salvo el encabezado de derivación, que pasa de mayúsculas a "Eduardo".
+- `prompt.huella()`: 12 caracteres para comparar el archivo local, el secreto de GitHub (sale en el CI) y la variable de Railway (sale en el log al arrancar). El 8 de noviembre el secreto de GitHub era otra versión.
 
 ### Pendientes menores
 - Probar en vivo comprobante (foto) y crisis por WhatsApp (cubiertos por tests, no probados en vivo).

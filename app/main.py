@@ -21,6 +21,8 @@ from app import (
     transcripcion,
     whatsapp,
 )
+from app.prompt import huella as huella_del_prompt
+from app.prompt import texto_del_prompt
 from app.scheduling import dia_y_fecha
 from app.text import describir, normalizar_numero, referencia
 
@@ -33,6 +35,10 @@ logger = logging.getLogger("sofia")
 @asynccontextmanager
 async def ciclo_de_vida(_app: FastAPI):
     """Con el calendario configurado, revisa cada minuto si toca mandar recordatorios."""
+    try:
+        logger.info("Prompt cargado, huella %s", huella_del_prompt())
+    except OSError:
+        logger.warning("No hay prompt para calcular su huella")
     await telegram.preparar_bot()
     tarea = asyncio.create_task(recordatorios.bucle()) if calendario.configurado() else None
     if tarea is None:
@@ -53,7 +59,7 @@ async def generar_validada(historial: list[dict], remitente: str, contexto: str 
     correccion = None
     for intento in (1, 2):
         respuesta = await llm.generar_respuesta(historial, correccion, contexto)
-        problemas = guardrails.validar_salida(respuesta.texto)
+        problemas = guardrails.validar_salida(respuesta.texto, texto_del_prompt())
         if not respuesta.derivacion and not problemas and guardrails.promete_derivar(respuesta.texto):
             # Le dijo que Eduardo le escribirá pero no usó la herramienta: sin esto la alerta nunca llega
             respuesta.derivacion = {"motivo": "otro", "resumen": "Sofía le dijo que Eduardo le escribiría."}
