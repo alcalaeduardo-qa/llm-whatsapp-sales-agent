@@ -12,6 +12,7 @@ from app import (
     comandos,
     config,
     guardrails,
+    limites,
     llm,
     metricas,
     recordatorios,
@@ -204,6 +205,28 @@ async def contexto_de(remitente: str, estado: dict, historial: list[dict] = ()) 
     else:
         notas.append(llm.NOTA_SIN_RESERVA)
     return "\n\n".join(notas) or None
+
+
+async def limite_excedido(remitente: str, texto: str, motivo: str) -> None:
+    """Pasó un tope: no se llama a Claude ni se reenvía a Telegram. Una crisis explícita sí recibe la línea de
+    ayuda (la detecta una lista de palabras, sin costo), y cada aviso sale una sola vez por ventana."""
+    try:
+        destino = normalizar_numero(remitente)
+        if texto and guardrails.crisis_explicita(texto):
+            await whatsapp.enviar_texto(destino, guardrails.respuesta_crisis(remitente))
+        if motivo == "persona" and limites.primer_aviso(remitente, limites.HORA):
+            await whatsapp.enviar_texto(destino, guardrails.RESPUESTA_LIMITE)
+            await telegram.alertar(
+                f"⚠️ +{remitente} mandó más de {config.LIMITE_MENSAJES_HORA} mensajes en una hora. Sofía deja de "
+                "responderle y de reenviarte sus mensajes hasta que baje el ritmo."
+            )
+        elif motivo == "total" and limites.primer_aviso("total", limites.DIA):
+            await telegram.alertar(
+                f"⚠️ Sofía recibió más de {config.LIMITE_MENSAJES_DIA} mensajes en 24 horas y dejó de responder "
+                "para cuidar el crédito. Sube LIMITE_MENSAJES_DIA en Railway si es tráfico real."
+            )
+    except Exception:
+        logger.exception("Error al avisar del tope de mensajes")
 
 
 async def procesar_mensaje(remitente: str, texto: str, wa_message_id: str) -> None:
@@ -406,6 +429,13 @@ async def recibir(request: Request, tareas: BackgroundTasks):
 
     recibidos = 0
     for mensaje in mensajes:
+        motivo = limites.revisar(mensaje["from"])
+        if motivo:
+            logger.warning("Tope de mensajes (%s) para %s", motivo, referencia(mensaje["from"]))
+            tareas.add_task(
+                limite_excedido, mensaje["from"], mensaje.get("text") or mensaje.get("caption") or "", motivo
+            )
+            continue
         if mensaje["type"] in whatsapp.TIPOS_MEDIA and mensaje["media_id"]:
             logger.info("Archivo entrante %s (%s)", referencia(mensaje["id"]), mensaje["type"])
             tareas.add_task(procesar_media, mensaje["from"], mensaje)
