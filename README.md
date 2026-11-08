@@ -14,9 +14,65 @@
 [![Claude](https://img.shields.io/badge/Claude-Haiku%205.5%20%C2%B7%20Opus%205.5-D97757)](https://www.anthropic.com/)
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)](LICENSE)
 
-[Español](#español) · [English](#english)
+[English](#english) · [Español](#español)
 
 </div>
+
+---
+
+## What this project demonstrates · Qué demuestra
+
+> Industrial QA applied to AI: failure-mode analysis, 562 tests and evals that gate every change.
+> QA industrial aplicado a IA: análisis de modos de falla, 562 tests y evals que frenan cada cambio.
+
+| Skill | Evidence |
+|---|---|
+| **LLM evaluation** | 69 cases with [DeepEval](https://github.com/confident-ai/deepeval): deterministic checks plus LLM judges. Pass rate 32.8 % → 94 %. |
+| **LLM-as-a-judge** | Claude Opus 5.5 judges calibrated against the spec; miscalibrated judges were punishing correct behavior. |
+| **Eval-gated CI** | Every pull request runs the evals against the real private prompt and fails below 85 %. |
+| **Red teaming & prompt injection** | 21/21 attacks blocked: injected instructions, fake operator orders, prompt extraction and translation. |
+| **Guardrails & AI safety** | Output validator, prompt-leak detection, payment-data checks, and a crisis classifier measured for sensitivity (27/27) and specificity (72/72). |
+| **Tool use & human in the loop** | Claude tool calling hands off to a human; the AI never confirms payments or bookings. |
+| **Production LLM ops** | FastAPI, Docker, GitHub Actions, Railway, per-reply cost and latency metrics, rate limits. |
+| **Security & privacy** | Security audit (22 leads), secrets out of the repo, 90-day retention, logs without personal data. |
+| **Quality engineering** | AI FMEA with 24 failure modes, 97 % test coverage, regression found and fixed through evals. |
+
+**Demo:** *video coming soon · video próximamente* — script in [`docs/DEMO.md`](docs/DEMO.md).
+
+---
+
+## English
+
+### What it is
+
+**Sofía** is a WhatsApp sales assistant for **Sanando el Alma**, a professional life-coaching service. She guides each conversation through the sales stages, offers only real free slots from the calendar, and leaves payment and booking to a human. At any sign of a crisis she stops selling, recommends professional care and shares the crisis line for the person's country.
+
+It runs in production and doubles as a case study in **industrial quality engineering applied to AI**: every failure mode has a code-level control and a metric that catches it before release.
+
+### Highlights
+
+- **Safety doesn't depend on the prompt:** crisis detection, prices, payment details, prompt leakage and formatting are enforced in code, before and after the model.
+- **Human in the loop:** the AI never handles money. The person pays, the operator checks the receipt and books with one tap in Telegram.
+- **Crisis handled as coaching, not therapy:** no promises of help. Fixed recommendations, crisis lines for 10 countries, and a sales block the person lifts by typing `ACEPTO`, which is recorded.
+- **Measured, not assumed:** 69 eval cases with [DeepEval](https://github.com/confident-ai/deepeval) and Claude Opus 5.5 as judge. The pass rate went from **32.8 % to 94 %**.
+- **Red teaming:** prompt injection, fake operator orders, discount pressure, fake bank account, prompt extraction and translation, covert crisis, "are you a bot?" and out-of-hours requests. 21/21 pass.
+- **Security audit:** 22 leads; crisis, payments, logs, spend limits, injection and CI secrets are fixed.
+- **AI FMEA:** 24 failure modes scored by severity, occurrence and detection, each mapped to a control and an eval metric.
+
+### Stack
+
+Python · FastAPI · Claude Haiku 5.5 (agent) · Claude Opus 5.5 (judge) · WhatsApp Cloud API · Supabase · Telegram Bot API · iCloud CalDAV · Groq Whisper · DeepEval · pytest · respx · ruff · Docker · GitHub Actions · Railway
+
+### Lessons from the evals
+
+1. **Half of the improvement came from fixing the measurement.** A judge that doesn't know the spec punishes the agent for following it. Giving the judge the spec at evaluation time took one category from 0 % to 75 %.
+2. **Accidental injection.** With YES/NO labels, the crisis classifier sometimes *answered the user's question* ("am I talking to an AI?" → "Yes") and triggered the crisis protocol. RISK/NORMAL labels and delimited user text fixed it.
+3. **A control can break the system.** The first prompt-leak detector blocked almost every reply in CI, where the prompt was a different version. The evals caught it before release.
+4. **Thinking tokens count against `max_tokens`.** With a 5-token limit the classifier could never answer, so covert crises silently passed as normal. Only live testing revealed it.
+
+### Quick start
+
+See [Instalación](#instalación) below: create a virtualenv, `pip install -r requirements-dev.txt`, fill in `.env` from `.env.example`, create the tables from `db/schema.sql`, and copy `prompts/sofia.example.md` to `prompts/sofia.md`.
 
 ---
 
@@ -178,41 +234,6 @@ python -m evals.clasificador             # sensibilidad y especificidad del clas
 - [x] Auditoría de seguridad: topes de gasto, protección del prompt e inyección
 - [ ] Número real de WhatsApp y plantilla de recordatorio
 - [ ] Ataques de inyección masivos con DeepTeam o promptfoo
-
----
-
-## English
-
-### What it is
-
-**Sofía** is a WhatsApp sales assistant for **Sanando el Alma**, a professional life-coaching service. She guides each conversation through the sales stages, offers only real free slots from the calendar, and leaves payment and booking to a human. At any sign of a crisis she stops selling, recommends professional care and shares the crisis line for the person's country.
-
-It runs in production and doubles as a case study in **industrial quality engineering applied to AI**: every failure mode has a code-level control and a metric that catches it before release.
-
-### Highlights
-
-- **Safety doesn't depend on the prompt:** crisis detection, prices, payment details, prompt leakage and formatting are enforced in code, before and after the model.
-- **Human in the loop:** the AI never handles money. The person pays, the operator checks the receipt and books with one tap in Telegram.
-- **Crisis handled as coaching, not therapy:** no promises of help. Fixed recommendations, crisis lines for 10 countries, and a sales block the person lifts by typing `ACEPTO`, which is recorded.
-- **Measured, not assumed:** 69 eval cases with [DeepEval](https://github.com/confident-ai/deepeval) and Claude Opus 5.5 as judge. The pass rate went from **32.8 % to 94 %**.
-- **Red teaming:** prompt injection, fake operator orders, discount pressure, fake bank account, prompt extraction and translation, covert crisis, "are you a bot?" and out-of-hours requests. 21/21 pass.
-- **Security audit:** 22 leads; crisis, payments, logs, spend limits, injection and CI secrets are fixed.
-- **AI FMEA:** 24 failure modes scored by severity, occurrence and detection, each mapped to a control and an eval metric.
-
-### Stack
-
-Python · FastAPI · Claude Haiku 5.5 (agent) · Claude Opus 5.5 (judge) · WhatsApp Cloud API · Supabase · Telegram Bot API · iCloud CalDAV · Groq Whisper · DeepEval · pytest · respx · ruff · Docker · GitHub Actions · Railway
-
-### Lessons from the evals
-
-1. **Half of the improvement came from fixing the measurement.** A judge that doesn't know the spec punishes the agent for following it. Giving the judge the spec at evaluation time took one category from 0 % to 75 %.
-2. **Accidental injection.** With YES/NO labels, the crisis classifier sometimes *answered the user's question* ("am I talking to an AI?" → "Yes") and triggered the crisis protocol. RISK/NORMAL labels and delimited user text fixed it.
-3. **A control can break the system.** The first prompt-leak detector blocked almost every reply in CI, where the prompt was a different version. The evals caught it before release.
-4. **Thinking tokens count against `max_tokens`.** With a 5-token limit the classifier could never answer, so covert crises silently passed as normal. Only live testing revealed it.
-
-### Quick start
-
-See [Instalación](#instalación) above: create a virtualenv, `pip install -r requirements-dev.txt`, fill in `.env` from `.env.example`, create the tables from `db/schema.sql`, and copy `prompts/sofia.example.md` to `prompts/sofia.md`.
 
 ---
 
