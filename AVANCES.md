@@ -27,7 +27,7 @@ Repositorio público: `github.com/alcalaeduardo-qa/llm-whatsapp-sales-agent`.
 | 7–8 | Evals + red-teaming | ✅ en `main` (PR #9): 64 casos, 89.1 % pasan (línea base 32.8 %) |
 | 9 | Docker, CI, deploy en Railway, métricas, retención 90 días | ✅ En `main` (PRs #11–#17) y **en producción en Railway** desde el 4 de noviembre, con subdominio |
 | — | Auditoría de seguridad (5 de noviembre) | 🟡 Crisis, pagos, logs y respuestas del operador corregidos (PRs #18, #20, #21; el #19 quitó BORRAR MIS DATOS). Quedan pistas sin corregir en el reporte privado |
-| 10 | README bilingüe, demo, PRIVACY, LinkedIn | ⬜ |
+| 10 | README bilingüe, demo, PRIVACY, LinkedIn | 🟡 README, LICENSE, topics y guion de demo listos; falta grabar la demo, fijar el repo y publicar el post |
 
 Tests: **561 pasan, cobertura 97 %** (mínimo exigido 80 %). Evals sin juez en el CI: entre 89 y 95 % según la corrida (varían unos 3 casos por el modelo; el mínimo exigido es 85 %).
 
