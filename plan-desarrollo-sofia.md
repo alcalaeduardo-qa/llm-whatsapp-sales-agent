@@ -76,7 +76,7 @@ Decisión: el calendario es el del iPhone (iCloud, calendario "Casa"); sesiones 
 - [x] Aviso de privacidad (enlace) en el primer mensaje de Sofía.
 
 ## Día 10 — Presentación
-- [ ] README bilingüe (EN/ES): problema, arquitectura (Mermaid), features, guardrails, resultados de evals, setup, roadmap.
-- [ ] GIF/video de demo con número de prueba (sin datos reales).
-- [ ] PRIVACY.md actualizado: retención 90 días, consentimiento, borrado a petición, terceros (Meta, Anthropic, Supabase, Groq).
-- [ ] LICENSE, topics, repo fijado, post LinkedIn.
+- [x] README bilingüe (EN/ES): problema, arquitectura (Mermaid), features, guardrails, resultados de evals, setup, roadmap.
+- [ ] GIF/video de demo con número de prueba (sin datos reales). Guion listo en `docs/DEMO.md`; falta grabarlo.
+- [x] PRIVACY.md actualizado: retención 90 días, consentimiento, borrado a petición, terceros (Meta, Anthropic, Supabase, Groq).
+- [ ] LICENSE, topics, repo fijado, post LinkedIn. LICENSE (todos los derechos reservados) y topics listos; falta fijar el repo y publicar el post.
