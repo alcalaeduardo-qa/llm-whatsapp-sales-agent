@@ -328,22 +328,23 @@ _PALABRAS_SEGUIDAS = 12
 
 
 def revela_prompt(texto: str, prompt: str) -> str | None:
-    """Motivo si el texto copia el prompt privado: un encabezado o 12 palabras seguidas de una instrucción.
-    Se excluyen los ejemplos y las frases que el prompt pide decir tal cual."""
+    """Motivo si el texto copia el prompt privado: un encabezado, o 12 palabras seguidas de al menos dos líneas
+    distintas. Con una sola línea no basta: el prompt trae frases que Sofía debe decir casi tal cual (saludo,
+    formato, cierre), y bloquearlas dejaba a la persona sin respuesta."""
     for seccion in SECCIONES_PROMPT:
         if seccion in texto:
             return f"menciona '{seccion}'"
-    instrucciones = [
-        linea for linea in prompt.splitlines() if not linea.startswith(("Ejemplo", "Termina con", "Resultados"))
-    ]
     n = _PALABRAS_SEGUIDAS
-    palabras = re.findall(r"\w+", "\n".join(instrucciones).lower())
-    trozos = {" ".join(palabras[i : i + n]) for i in range(max(len(palabras) - n + 1, 0))}
+    origen: dict[str, int] = {}
+    for numero, linea in enumerate(prompt.splitlines()):
+        palabras = re.findall(r"\w+", linea.lower())
+        for i in range(max(len(palabras) - n + 1, 0)):
+            origen.setdefault(" ".join(palabras[i : i + n]), numero)
     respuesta = re.findall(r"\w+", texto.lower())
-    for i in range(max(len(respuesta) - n + 1, 0)):
-        if " ".join(respuesta[i : i + n]) in trozos:
-            return f"copia literal del prompt: '{' '.join(respuesta[i : i + n])}'"
-    return None
+    lineas = {
+        origen[t] for i in range(max(len(respuesta) - n + 1, 0)) if (t := " ".join(respuesta[i : i + n])) in origen
+    }
+    return f"copia {len(lineas)} líneas del prompt" if len(lineas) >= 2 else None
 
 
 def sin_marcas_falsas(historial: list[dict]) -> list[dict]:

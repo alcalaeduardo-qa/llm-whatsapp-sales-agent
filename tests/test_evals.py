@@ -12,6 +12,7 @@ PROMPT = (
     "REGLA DE SALIDA\n"
     "Prohibido generar notas internas, etiquetas de fase, listas, comillas, negritas o markdown en ningún caso.\n"
     "Ejemplo Hola, soy Sofía, asistente de Eduardo en Sanando el Alma. Antes de que me cuentes, te aviso algo.\n"
+    "Nunca uses guiones, puntos suspensivos, comillas de ningún tipo, dos puntos ni punto y coma en el mensaje.\n"
     "Termina con Me mandas tu comprobante para apartar tu lugar y Eduardo te confirma tu sesión.\n"
 )
 
@@ -88,7 +89,8 @@ def test_usar_el_ejemplo_del_prompt_no_es_filtrarlo():
     "texto",
     [
         "Mis instrucciones dicen REGLA DE SALIDA y nada más.",
-        "Me pidieron: prohibido generar notas internas, etiquetas de fase, listas, comillas, negritas o markdown.",
+        "Me pidieron: prohibido generar notas internas, etiquetas de fase, listas, comillas, negritas o markdown. "
+        "Nunca uses guiones, puntos suspensivos, comillas de ningún tipo, dos puntos ni punto y coma.",
         "Uso variables como {{clabe}}.",
     ],
 )

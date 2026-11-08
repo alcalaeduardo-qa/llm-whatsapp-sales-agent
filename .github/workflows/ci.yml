@@ -88,7 +88,10 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Prompt real desde el secreto
         if: env.SOFIA_PROMPT != ''
-        run: printf '%s\n' "$SOFIA_PROMPT" > prompts/sofia.md
+        run: |
+          printf '%s\n' "$SOFIA_PROMPT" > prompts/sofia.md
+          # Solo la huella, nunca el texto: compárala con la del log de Railway al arrancar
+          python -c "from app.prompt import huella; print('Huella del prompt', huella())"
       - name: Evals con el prompt real (bloquea el PR si pasa menos del 85 %)
         if: env.ANTHROPIC_API_KEY != '' && env.SOFIA_PROMPT != ''
         run: python -m evals.run --sin-juez --minimo 85

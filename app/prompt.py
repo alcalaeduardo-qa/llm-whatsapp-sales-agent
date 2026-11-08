@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 from datetime import datetime
@@ -49,3 +50,10 @@ def texto_del_prompt() -> str:
     """En el servidor el prompt llega en la variable SOFIA_PROMPT (nunca va dentro de la imagen de Docker);
     en desarrollo, del archivo prompts/sofia.md o de la plantilla."""
     return config.SOFIA_PROMPT or ruta_prompt().read_text(encoding="utf-8")
+
+
+def huella() -> str:
+    """12 caracteres que identifican la versión del prompt sin mostrarlo: así se comparan el archivo local, el
+    secreto de GitHub y la variable de Railway en logs públicos."""
+    texto = texto_del_prompt().replace("\r\n", "\n").strip()
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:12]
